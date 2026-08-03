@@ -3,304 +3,210 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#172033" />
   <title>HANYOJO ERP Cloud</title>
-
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
+    :root{
+      --navy:#172033;--navy2:#24324d;--bg:#f4f6f8;--card:#fff;
+      --text:#1f2937;--muted:#667085;--line:#e7eaf0;--green:#15945b;
+      --amber:#fff6e5;--danger:#b42318;
     }
-
-    body {
-      background: #f4f6f8;
-      color: #1f2937;
-    }
-
-    .app {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    .sidebar {
-      width: 250px;
-      background: #172033;
-      color: white;
-      padding: 24px 16px;
-    }
-
-    .brand {
-      margin-bottom: 30px;
-      padding: 0 10px;
-    }
-
-    .brand h2 {
-      font-size: 22px;
-      margin-bottom: 5px;
-    }
-
-    .brand p {
-      font-size: 12px;
-      color: #b7c0d1;
-    }
-
-    .menu a {
-      display: block;
-      color: #dce3ef;
-      text-decoration: none;
-      padding: 12px;
-      margin-bottom: 6px;
-      border-radius: 8px;
-    }
-
-    .menu a:hover,
-    .menu a.active {
-      background: #2a3854;
-      color: white;
-    }
-
-    .main {
-      flex: 1;
-      padding: 24px;
-    }
-
-    .header {
-      background: white;
-      padding: 18px 22px;
-      border-radius: 12px;
-      margin-bottom: 22px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .header h1 {
-      font-size: 24px;
-    }
-
-    .user {
-      font-size: 14px;
-      color: #667085;
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 22px;
-    }
-
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .card p {
-      color: #667085;
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
-
-    .card h3 {
-      font-size: 26px;
-    }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 16px;
-    }
-
-    .panel {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .panel h3 {
-      margin-bottom: 18px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #e7eaf0;
-      font-size: 14px;
-    }
-
-    th {
-      color: #667085;
-    }
-
-    .status {
-      display: inline-block;
-      background: #e7f7ee;
-      color: #147a44;
-      padding: 5px 9px;
-      border-radius: 20px;
-      font-size: 12px;
-    }
-
-    .alert {
-      padding: 12px;
-      background: #fff6e5;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      font-size: 14px;
-    }
-
-    @media (max-width: 900px) {
-      .sidebar {
-        width: 210px;
-      }
-
-      .cards {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .content-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 650px) {
-      .app {
-        display: block;
-      }
-
-      .sidebar {
-        width: 100%;
-      }
-
-      .menu {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .main {
-        padding: 14px;
-      }
-
-      .cards {
-        grid-template-columns: 1fr;
-      }
-
-      .header {
-        display: block;
-      }
-
-      .user {
-        margin-top: 8px;
-      }
-    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,sans-serif}
+    body{background:var(--bg);color:var(--text)}
+    button,input,select,textarea{font:inherit}
+    .app{display:flex;min-height:100vh}
+    .sidebar{width:250px;background:var(--navy);color:#fff;padding:24px 16px;position:sticky;top:0;height:100vh}
+    .brand{margin-bottom:28px;padding:0 10px}.brand h2{font-size:22px}.brand p{font-size:12px;color:#b7c0d1;margin-top:5px}
+    .menu button{width:100%;display:block;color:#dce3ef;background:transparent;border:0;text-align:left;padding:12px;margin-bottom:6px;border-radius:8px;cursor:pointer}
+    .menu button:hover,.menu button.active{background:var(--navy2);color:#fff}
+    .main{flex:1;padding:24px;min-width:0}
+    .header{background:#fff;padding:18px 22px;border-radius:12px;margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .header h1{font-size:24px}.header p,.user{font-size:14px;color:var(--muted);margin-top:4px}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+    .card,.panel{background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+    .card p{color:var(--muted);font-size:14px;margin-bottom:10px}.card h3{font-size:26px}
+    .content-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    .panel h3{margin-bottom:16px}
+    .toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}
+    .btn{border:0;border-radius:8px;padding:10px 14px;cursor:pointer;background:var(--navy);color:#fff}
+    .btn.secondary{background:#eef1f5;color:var(--text)} .btn.danger{background:#fee4e2;color:var(--danger)}
+    .input{width:100%;padding:10px 12px;border:1px solid #d0d5dd;border-radius:8px;background:#fff}
+    table{width:100%;border-collapse:collapse;overflow:auto}th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+    th{color:var(--muted)}.table-wrap{overflow:auto}
+    .status{display:inline-block;background:#e7f7ee;color:#147a44;padding:5px 9px;border-radius:20px;font-size:12px}
+    .alert{padding:12px;background:var(--amber);border-radius:8px;margin-bottom:10px;font-size:14px}
+    .notice{padding:12px;border-radius:8px;background:#eef4ff;color:#3538cd;margin-bottom:16px}
+    .error{background:#fee4e2;color:var(--danger)}
+    .hidden{display:none!important}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.form-grid .full{grid-column:1/-1}
+    .section{display:none}.section.active{display:block}
+    dialog{border:0;border-radius:14px;padding:0;max-width:720px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.25)}
+    dialog::backdrop{background:rgba(0,0,0,.45)}.modal{padding:22px}.modal h3{margin-bottom:16px}.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+    .small{font-size:12px;color:var(--muted)}
+    @media(max-width:900px){.sidebar{width:210px}.cards{grid-template-columns:repeat(2,1fr)}.content-grid{grid-template-columns:1fr}}
+    @media(max-width:650px){.app{display:block}.sidebar{width:100%;height:auto;position:relative}.menu{display:grid;grid-template-columns:repeat(2,1fr)}.main{padding:14px}.cards{grid-template-columns:1fr}.header{display:block}.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
-
 <body>
-  <div class="app">
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><h2>HANYOJO ERP</h2><p>PT HANYOJO SUN JAVA</p></div>
+    <nav class="menu">
+      <button class="active" data-page="dashboard">Dashboard</button>
+      <button data-page="barang">Master Barang</button>
+      <button data-page="customers">Customer</button>
+      <button data-page="suppliers">Supplier</button>
+      <button data-page="warehouses">Gudang</button>
+      <button data-page="purchases">Pembelian</button>
+      <button data-page="sales">Penjualan</button>
+      <button data-page="stocks">Stok</button>
+      <button data-page="payments">Kas & Bank</button>
+      <button data-page="reports">Laporan</button>
+      <button data-page="settings">Pengaturan</button>
+    </nav>
+  </aside>
 
-    <aside class="sidebar">
-      <div class="brand">
-        <h2>HANYOJO ERP</h2>
-        <p>PT HANYOJO SUN JAVA</p>
+  <main class="main">
+    <header class="header">
+      <div><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Ringkasan operasional perusahaan</p></div>
+      <div class="user">Direktur — PT HANYOJO SUN JAVA</div>
+    </header>
+
+    <div id="message" class="notice hidden"></div>
+
+    <section id="dashboard" class="section active">
+      <div class="cards">
+        <div class="card"><p>Total Barang</p><h3 id="countBarang">—</h3></div>
+        <div class="card"><p>Total Customer</p><h3 id="countCustomer">—</h3></div>
+        <div class="card"><p>Total Supplier</p><h3 id="countSupplier">—</h3></div>
+        <div class="card"><p>Total Gudang</p><h3 id="countGudang">—</h3></div>
       </div>
+      <div class="content-grid">
+        <div class="panel"><h3>Transaksi Penjualan Terbaru</h3><div id="latestSales" class="table-wrap">Belum terhubung ke database.</div></div>
+        <div class="panel"><h3>Status Sistem</h3><div class="alert" id="connectionText">Masukkan Publishable Key di menu Pengaturan.</div><span class="status">Website aktif</span></div>
+      </div>
+    </section>
 
-      <nav class="menu">
-        <a href="#" class="active">Dashboard</a>
-        <a href="#">Master Barang</a>
-        <a href="#">Customer</a>
-        <a href="#">Supplier</a>
-        <a href="#">Gudang</a>
-        <a href="#">Pembelian</a>
-        <a href="#">Penjualan</a>
-        <a href="#">Stok</a>
-        <a href="#">Kas & Bank</a>
-        <a href="#">Laporan</a>
-        <a href="#">Pengaturan</a>
-      </nav>
-    </aside>
+    <section id="barang" class="section">
+      <div class="panel"><div class="toolbar"><h3>Master Barang</h3><button class="btn" onclick="openBarang()">+ Tambah Barang</button></div>
+      <div id="barangTable" class="table-wrap">Belum ada data.</div></div>
+    </section>
 
-    <main class="main">
+    <section id="customers" class="section"><div class="panel"><h3>Customer</h3><p>Modul customer siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
+    <section id="suppliers" class="section"><div class="panel"><h3>Supplier</h3><p>Modul supplier siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
+    <section id="warehouses" class="section"><div class="panel"><h3>Gudang</h3><p>Modul gudang siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
+    <section id="purchases" class="section"><div class="panel"><h3>Pembelian</h3><p>Modul pembelian tahap berikutnya.</p></div></section>
+    <section id="sales" class="section"><div class="panel"><h3>Penjualan</h3><p>Modul penjualan tahap berikutnya.</p></div></section>
+    <section id="stocks" class="section"><div class="panel"><h3>Stok</h3><p>Modul stok tahap berikutnya.</p></div></section>
+    <section id="payments" class="section"><div class="panel"><h3>Kas & Bank</h3><p>Modul kas dan bank tahap berikutnya.</p></div></section>
+    <section id="reports" class="section"><div class="panel"><h3>Laporan</h3><p>Modul laporan tahap berikutnya.</p></div></section>
 
-      <header class="header">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Ringkasan operasional perusahaan</p>
+    <section id="settings" class="section">
+      <div class="panel">
+        <h3>Pengaturan Koneksi Supabase</h3>
+        <p class="small" style="margin-bottom:14px">Gunakan hanya Publishable Key. Jangan pernah memakai Secret Key di website.</p>
+        <div class="form-grid">
+          <label class="full">Project URL<input id="projectUrl" class="input" value="https://rrmzexcalpfmaykyehyt.supabase.co"></label>
+          <label class="full">Publishable Key<input id="publishableKey" type="password" class="input" placeholder="Tempel Publishable Key di sini"></label>
         </div>
+        <div class="modal-actions"><button class="btn secondary" onclick="testConnection()">Tes Koneksi</button><button class="btn" onclick="saveSettings()">Simpan Pengaturan</button></div>
+      </div>
+    </section>
+  </main>
+</div>
 
-        <div class="user">
-          Direktur — PT HANYOJO SUN JAVA
-        </div>
-      </header>
+<dialog id="barangDialog">
+  <form method="dialog" class="modal" id="barangForm">
+    <h3>Tambah Barang</h3>
+    <div class="form-grid">
+      <label>Kode Barang<input name="kode_barang" class="input" required></label>
+      <label>Nama Barang<input name="nama_barang" class="input" required></label>
+      <label>Kategori<input name="kategori" class="input"></label>
+      <label>Satuan<input name="satuan" class="input" value="PCS"></label>
+      <label>Harga Beli<input name="harga_beli" type="number" min="0" step="0.01" class="input" value="0"></label>
+    </div>
+    <div class="modal-actions"><button value="cancel" class="btn secondary">Batal</button><button type="button" class="btn" onclick="saveBarang()">Simpan</button></div>
+  </form>
+</dialog>
 
-      <section class="cards">
-        <div class="card">
-          <p>Total Barang</p>
-          <h3>0</h3>
-        </div>
+<script>
+  const cfg = {
+    get url(){ return localStorage.getItem('hanyojo_url') || 'https://rrmzexcalpfmaykyehyt.supabase.co'; },
+    get key(){ return localStorage.getItem('hanyojo_key') || ''; }
+  };
 
-        <div class="card">
-          <p>Total Customer</p>
-          <h3>0</h3>
-        </div>
+  const titles = {
+    dashboard:['Dashboard','Ringkasan operasional perusahaan'],barang:['Master Barang','Kelola produk dan harga beli'],
+    customers:['Customer','Kelola pelanggan'],suppliers:['Supplier','Kelola pemasok'],warehouses:['Gudang','Kelola lokasi penyimpanan'],
+    purchases:['Pembelian','Transaksi pembelian'],sales:['Penjualan','Transaksi penjualan'],stocks:['Stok','Persediaan per gudang'],
+    payments:['Kas & Bank','Penerimaan dan pembayaran'],reports:['Laporan','Ringkasan kinerja perusahaan'],settings:['Pengaturan','Koneksi dan konfigurasi']
+  };
 
-        <div class="card">
-          <p>Penjualan Hari Ini</p>
-          <h3>Rp0</h3>
-        </div>
+  document.querySelectorAll('.menu button').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.getElementById(btn.dataset.page).classList.add('active');
+    document.getElementById('pageTitle').textContent=titles[btn.dataset.page][0];
+    document.getElementById('pageSubtitle').textContent=titles[btn.dataset.page][1];
+    if(btn.dataset.page==='dashboard') loadDashboard();
+    if(btn.dataset.page==='barang') loadBarang();
+    if(btn.dataset.page==='settings') loadSettings();
+  }));
 
-        <div class="card">
-          <p>Piutang Aktif</p>
-          <h3>Rp0</h3>
-        </div>
-      </section>
+  function headers(extra={}) {
+    if(!cfg.key) throw new Error('Publishable Key belum disimpan.');
+    return { apikey:cfg.key, Authorization:'Bearer '+cfg.key, ...extra };
+  }
+  function showMessage(text,isError=false){
+    const el=document.getElementById('message'); el.textContent=text; el.className='notice'+(isError?' error':'');
+    setTimeout(()=>el.classList.add('hidden'),6000);
+  }
+  async function countTable(table){
+    const r=await fetch(`${cfg.url}/rest/v1/${table}?select=id`,{method:'HEAD',headers:headers({Prefer:'count=exact'})});
+    if(!r.ok) throw new Error(`${table}: ${r.status}`);
+    const range=r.headers.get('content-range')||'0/0'; return range.split('/')[1]||'0';
+  }
+  async function loadDashboard(){
+    if(!cfg.key){ document.getElementById('connectionText').textContent='Masukkan Publishable Key di menu Pengaturan.'; return; }
+    try{
+      const [b,c,s,w]=await Promise.all([countTable('master_barang'),countTable('customers'),countTable('suppliers'),countTable('warehouses')]);
+      document.getElementById('countBarang').textContent=b; document.getElementById('countCustomer').textContent=c;
+      document.getElementById('countSupplier').textContent=s; document.getElementById('countGudang').textContent=w;
+      document.getElementById('connectionText').textContent='Terhubung ke Supabase.';
+    }catch(e){
+      document.getElementById('connectionText').textContent='Koneksi belum diizinkan. Login/RLS policy perlu disiapkan.';
+      showMessage('Database belum dapat dibaca: '+e.message,true);
+    }
+  }
+  function loadSettings(){ document.getElementById('projectUrl').value=cfg.url; document.getElementById('publishableKey').value=cfg.key; }
+  function saveSettings(){
+    const url=document.getElementById('projectUrl').value.trim().replace(/\/$/,'');
+    const key=document.getElementById('publishableKey').value.trim();
+    if(!url||!key){showMessage('Project URL dan Publishable Key wajib diisi.',true);return;}
+    localStorage.setItem('hanyojo_url',url); localStorage.setItem('hanyojo_key',key);
+    showMessage('Pengaturan tersimpan hanya di browser perangkat ini.'); loadDashboard();
+  }
+  async function testConnection(){ try{ const n=await countTable('master_barang'); showMessage('Koneksi berhasil. Total barang: '+n); }catch(e){showMessage('Tes gagal. Kemungkinan RLS/policy belum diatur: '+e.message,true);} }
 
-      <section class="content-grid">
-
-        <div class="panel">
-          <h3>Transaksi Terbaru</h3>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Nomor</th>
-                <th>Customer</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td colspan="4">Belum ada transaksi.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="panel">
-          <h3>Peringatan Stok</h3>
-
-          <div class="alert">
-            Belum ada barang dengan stok minimum.
-          </div>
-
-          <span class="status">Sistem aktif</span>
-        </div>
-
-      </section>
-    </main>
-  </div>
+  async function loadBarang(){
+    if(!cfg.key){document.getElementById('barangTable').innerHTML='Simpan Publishable Key di menu Pengaturan dahulu.';return;}
+    try{
+      const r=await fetch(`${cfg.url}/rest/v1/master_barang?select=id,kode_barang,nama_barang,kategori,satuan,harga_beli&order=id.desc`,{headers:headers()});
+      if(!r.ok) throw new Error(r.status); const rows=await r.json();
+      document.getElementById('barangTable').innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Satuan</th><th>Harga Beli</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.kode_barang)}</td><td>${esc(x.nama_barang)}</td><td>${esc(x.kategori||'')}</td><td>${esc(x.satuan||'')}</td><td>Rp${Number(x.harga_beli||0).toLocaleString('id-ID')}</td></tr>`).join('')}</tbody></table>`:'Belum ada data barang.';
+    }catch(e){document.getElementById('barangTable').innerHTML='Data belum dapat dibaca. Atur login/RLS policy terlebih dahulu.';}
+  }
+  function openBarang(){document.getElementById('barangDialog').showModal();}
+  async function saveBarang(){
+    try{
+      const data=Object.fromEntries(new FormData(document.getElementById('barangForm')).entries()); data.harga_beli=Number(data.harga_beli||0);
+      const r=await fetch(`${cfg.url}/rest/v1/master_barang`,{method:'POST',headers:headers({'Content-Type':'application/json',Prefer:'return=minimal'}),body:JSON.stringify(data)});
+      if(!r.ok) throw new Error(await r.text()); document.getElementById('barangDialog').close(); document.getElementById('barangForm').reset();
+      showMessage('Barang berhasil disimpan.'); loadBarang(); loadDashboard();
+    }catch(e){showMessage('Belum bisa menyimpan. Login/RLS policy perlu disiapkan: '+e.message,true);}
+  }
+  function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+  loadSettings(); loadDashboard();
+</script>
 </body>
 </html>
