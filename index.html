@@ -92,7 +92,7 @@
       <div id="barangTable" class="table-wrap">Belum ada data.</div></div>
     </section>
 
-    <section id="customers" class="section"><div class="panel"><h3>Customer</h3><p>Modul customer siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
+    <section id="customers" class="section"><div class="panel"><h3>Customer</h3><p><div id="customerTable" class="table-wrap">Memuat data customer...</div> dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
     <section id="suppliers" class="section"><div class="panel"><h3>Supplier</h3><p>Modul supplier siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
     <section id="warehouses" class="section"><div class="panel"><h3>Gudang</h3><p>Modul gudang siap dihubungkan setelah login dan kebijakan keamanan database selesai.</p></div></section>
     <section id="purchases" class="section"><div class="panel"><h3>Pembelian</h3><p>Modul pembelian tahap berikutnya.</p></div></section>
@@ -150,6 +150,7 @@
     document.getElementById('pageSubtitle').textContent=titles[btn.dataset.page][1];
     if(btn.dataset.page==='dashboard') loadDashboard();
     if(btn.dataset.page==='barang') loadBarang();
+    if(btn.dataset.page==='customers') loadCustomers();
     if(btn.dataset.page==='settings') loadSettings();
   }));
 
@@ -205,7 +206,38 @@
       showMessage('Barang berhasil disimpan.'); loadBarang(); loadDashboard();
     }catch(e){showMessage('Belum bisa menyimpan. Login/RLS policy perlu disiapkan: '+e.message,true);}
   }
-  function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+  async function loadCustomers(){
+  if(!cfg.key){
+    document.getElementById('customerTable').innerHTML='Simpan Publishable Key terlebih dahulu.';
+    return;
+  }
+
+  try{
+    const r = await fetch(
+      `${cfg.url}/rest/v1/customers?select=*`,
+      {headers:headers()}
+    );
+
+    if(!r.ok) throw new Error(await r.text());
+
+    const rows = await r.json();
+
+    document.getElementById('customerTable').innerHTML =
+      rows.length
+        ? `<table><thead><tr><th>Nama Customer</th><th>Telepon</th><th>Alamat</th></tr></thead><tbody>${
+            rows.map(x=>`<tr><td>${esc(x.name||x.nama||'')}</td><td>${esc(x.phone||x.telepon||'')}</td><td>${esc(x.address||x.alamat||'')}</td></tr>`).join('')
+          }</tbody></table>`
+        : 'Belum ada data customer';
+
+  }catch(e){
+    document.getElementById('customerTable').innerHTML =
+      'Data customer belum dapat dibaca: ' + e.message;
+  }
+}
+  
+  function esc(v)
+  
+  {return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
   loadSettings(); loadDashboard();
 </script>
 </body>
