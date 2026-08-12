@@ -225,7 +225,9 @@
     document.getElementById('customerTable').innerHTML =
       rows.length
         ? `<table><thead><tr><th>Nama Customer</th><th>Telepon</th><th>Alamat</th></tr></thead><tbody>${
-            rows.map(x=>`<tr><td>${esc(x.name||x.nama||'')}</td><td>${esc(x.phone||x.telepon||'')}</td><td>${esc(x.address||x.alamat||'')}</td></tr>`).join('')
+            rows.map(x=>`<tr><td>${esc(x.nama_customer||''
+                                      
+                                      )}</td><td>${esc(x.phone||x.telepon||'')}</td><td>${esc(x.address||x.alamat||'')}</td></tr>`).join('')
           }</tbody></table>`
         : 'Belum ada data customer';
 
