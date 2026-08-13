@@ -237,7 +237,7 @@ async function saveCustomer(){
   try{
     const data = Object.fromEntries(
       new FormData(document.getElementById('customerForm'))
-    );
+    );data.nama_toko = data.nama_customer;
 
     const r = await fetch(`${cfg.url}/rest/v1/customers`, {
       method:'POST',
