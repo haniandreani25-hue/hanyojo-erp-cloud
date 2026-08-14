@@ -364,6 +364,8 @@ async function saveSupplier(){
       new FormData(document.getElementById('supplierForm'))
     );
 data.nomor_hp = data.no_hp || '';
+
+delete data.no_hp;
     const r = await fetch(`${cfg.url}/rest/v1/suppliers`, {
       method: 'POST',
       headers: headers({
