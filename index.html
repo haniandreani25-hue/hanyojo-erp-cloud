@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>  
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
@@ -363,7 +363,7 @@ async function saveSupplier(){
     const data = Object.fromEntries(
       new FormData(document.getElementById('supplierForm'))
     );
-
+data.nomor_hp = data.no_hp || '';
     const r = await fetch(`${cfg.url}/rest/v1/suppliers`, {
       method: 'POST',
       headers: headers({
