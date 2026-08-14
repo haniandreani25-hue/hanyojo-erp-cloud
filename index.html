@@ -277,10 +277,11 @@ async function saveCustomer(){
 
     document.getElementById('customerTable').innerHTML =
       rows.length
-        ? `<table><thead><tr><th>Nama Customer</th><th>Telepon</th><th>Alamat</th></tr></thead><tbody>${
+        ? `<table><thead><tr><th>Nama Customer</th><th>Tipe Customer</th><th>Telepon</th><th>Alamat</th></tr></thead><tbody>${
            rows.map(x => `
   <tr>
     <td>${esc(x.nama_customer || '')}</td>
+    <td>${esc(x.tipe_customer || '')}</td>
     <td>${esc(x.nomor_hp || '')}</td>
     <td>${esc(x.alamat || '')}</td>
   </tr>
