@@ -99,6 +99,14 @@
     </div>
     <div id="customerTable" class="table-wrap">Belum ada data customer.</div>
   </div>
+</section><section id="suppliers" class="section">
+  <div class="panel">
+    <div class="toolbar">
+      <h3>Supplier</h3>
+      <button class="btn" onclick="openSupplier()">+ Tambah Supplier</button>
+    </div>
+    <div id="supplierTable" class="table-wrap">Belum ada data supplier.</div>
+  </div>
 </section>
     <section id="settings" class="section">
       <div class="panel">
@@ -151,6 +159,58 @@
     <div class="modal-actions">
       <button value="cancel" class="btn secondary">Batal</button>
       <button type="button" class="btn" onclick="saveCustomer()">Simpan</button>
+    </div>
+  </form>
+</dialog>
+  <dialog id="supplierDialog">
+  <form method="dialog" class="modal" id="supplierForm">
+    <h3>Tambah Supplier</h3>
+
+    <div class="form-grid">
+      <label>Nama Supplier
+        <input name="nama_supplier" class="input" required>
+      </label>
+
+      <label>Nama Perusahaan
+        <input name="nama_perusahaan" class="input">
+      </label>
+
+      <label>No. HP
+        <input name="no_hp" class="input">
+      </label>
+
+      <label>Email
+        <input name="email" type="email" class="input">
+      </label>
+
+      <label>Alamat
+        <input name="alamat" class="input">
+      </label>
+
+      <label>Nama PIC
+        <input name="nama_pic" class="input">
+      </label>
+
+      <label>NPWP
+        <input name="npwp" class="input">
+      </label>
+
+      <label>Rekening Bank
+        <input name="rekening_bank" class="input">
+      </label>
+
+      <label>Termin Pembayaran (hari)
+        <input name="termin_pembayaran" type="number" class="input" value="0">
+      </label>
+
+      <label>Catatan
+        <input name="catatan" class="input">
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <button value="cancel" class="btn secondary">Batal</button>
+      <button type="button" class="btn" onclick="saveSupplier()">Simpan</button>
     </div>
   </form>
 </dialog>
@@ -292,6 +352,73 @@ async function saveCustomer(){
   }catch(e){
     document.getElementById('customerTable').innerHTML =
       'Data customer belum dapat dibaca: ' + e.message;
+  }
+}
+function openSupplier(){
+  document.getElementById('supplierDialog').showModal();
+}
+
+async function saveSupplier(){
+  try{
+    const data = Object.fromEntries(
+      new FormData(document.getElementById('supplierForm'))
+    );
+
+    const r = await fetch(`${cfg.url}/rest/v1/suppliers`, {
+      method: 'POST',
+      headers: headers({
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      }),
+      body: JSON.stringify(data)
+    });
+
+    if(!r.ok) throw new Error(await r.text());
+
+    document.getElementById('supplierDialog').close();
+    document.getElementById('supplierForm').reset();
+    showMessage('Supplier berhasil disimpan.');
+    loadSuppliers();
+
+  }catch(e){
+    showMessage('Supplier belum bisa disimpan: ' + e.message, true);
+  }
+}
+
+async function loadSuppliers(){
+  if(!cfg.key){
+    document.getElementById('supplierTable').innerHTML =
+      'Simpan Publishable Key terlebih dahulu.';
+    return;
+  }
+
+  try{
+    const r = await fetch(
+      `${cfg.url}/rest/v1/suppliers?select=*`,
+      {headers: headers()}
+    );
+
+    if(!r.ok) throw new Error(await r.text());
+
+    const rows = await r.json();
+
+    document.getElementById('supplierTable').innerHTML =
+      rows.length
+      ? `<table><thead><tr><th>Nama Supplier</th><th>Telepon</th><th>Email</th><th>Alamat</th></tr></thead><tbody>${
+          rows.map(x => `
+            <tr>
+              <td>${esc(x.nama_supplier || '')}</td>
+              <td>${esc(x.nomor_hp || '')}</td>
+              <td>${esc(x.email || '')}</td>
+              <td>${esc(x.alamat || '')}</td>
+            </tr>
+          `).join("")
+        }</tbody></table>`
+      : 'Belum ada data supplier';
+
+  }catch(e){
+    document.getElementById('supplierTable').innerHTML =
+      'Data supplier belum dapat dibaca: ' + e.message;
   }
 }
   
