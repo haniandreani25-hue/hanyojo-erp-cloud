@@ -424,10 +424,16 @@ async function loadSuppliers(){
       'Data supplier belum dapat dibaca: ' + e.message;
   }
 }
-  
-  function esc(v)
-  
-  {return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, m => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[m]));
+}
   loadSettings(); loadDashboard();
 </script>
 </body>
