@@ -273,9 +273,15 @@
     localStorage.setItem('hanyojo_url',url); localStorage.setItem('hanyojo_key',key);
     showMessage('Pengaturan tersimpan hanya di browser perangkat ini.'); loadDashboard();
   }
-  async function testConnection(){ try{ const n=await countTable('master_barang'); showMessage('Koneksi berhasil. Total barang: '+n); }catch(e){showMessage('Tes gagal. Kemungkinan RLS/policy belum diatur: '+e.message,true);} }
-
-  async function loadBarang(){
+  async function testConnection(){
+  try{
+    const n = await countTable('master_barang');
+    showMessage('Koneksi berhasil. Total barang: ' + n);
+  } catch(e){
+    showMessage('Tes gagal. Kemungkinan RLS/policy belum diatur: ' + e.message, true);
+  }
+}
+    async function loadBarang(){
     if(!cfg.key){document.getElementById('barangTable').innerHTML='Simpan Publishable Key di menu Pengaturan dahulu.';return;}
     try{
       const r=await fetch(`${cfg.url}/rest/v1/master_barang?select=id,kode_barang,nama_barang,kategori,satuan,harga_beli&order=id.desc`,{headers:headers()});
