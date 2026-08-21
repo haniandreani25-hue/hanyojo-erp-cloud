@@ -215,232 +215,175 @@
   </form>
 </dialog>
 <script>
-  const cfg = {
-    get url(){ return localStorage.getItem('hanyojo_url') || 'https://rrmzexcalpfmaykyehyt.supabase.co'; },
-    get key(){ return localStorage.getItem('hanyojo_key') || 'sb_publishable_wkc3mceTKzrTyaZUGA_E7Q_d6ew2MUT; }
+const cfg = {
+  get url() {
+    return localStorage.getItem("hanyojo_url") || "";
+  },
+  get key() {
+    return localStorage.getItem("hanyojo_key") || "";
+  }
+};
+
+function headers(extra = {}) {
+  return {
+    "apikey": cfg.key,
+    "Authorization": "Bearer " + cfg.key,
+    "Content-Type": "application/json",
+    ...extra
   };
+}
 
-  const titles = {
-    dashboard:['Dashboard','Ringkasan operasional perusahaan'],barang:['Master Barang','Kelola produk dan harga beli'],
-    customers:['Customer','Kelola pelanggan'],suppliers:['Supplier','Kelola pemasok'],warehouses:['Gudang','Kelola lokasi penyimpanan'],
-    purchases:['Pembelian','Transaksi pembelian'],sales:['Penjualan','Transaksi penjualan'],stocks:['Stok','Persediaan per gudang'],
-    payments:['Kas & Bank','Penerimaan dan pembayaran'],reports:['Laporan','Ringkasan kinerja perusahaan'],settings:['Pengaturan','Koneksi dan konfigurasi']
-  };
+function showMessage(text) {
+  alert(text);
+}
 
-  document.querySelectorAll('.menu button').forEach(btn=>btn.addEventListener('click',()=>{
-    document.querySelectorAll('.menu button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
-    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-    document.getElementById(btn.dataset.page).classList.add('active');
-    document.getElementById('pageTitle').textContent=titles[btn.dataset.page][0];
-    document.getElementById('pageSubtitle').textContent=titles[btn.dataset.page][1];
-    if(btn.dataset.page==='dashboard') loadDashboard();
-    if(btn.dataset.page==='barang') loadBarang();
-    if(btn.dataset.page==='customers') loadCustomers();
-    if(btn.dataset.page==='suppliers') loadSuppliers();
-    if(btn.dataset.page==='settings') loadSettings();
-  }));
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-  function headers(extra={}) {
-    if(!cfg.key) throw new Error('Publishable Key belum disimpan.');
-    return { apikey:cfg.key, Authorization:'Bearer '+cfg.key, ...extra };
-  }
-  function showMessage(text,isError=false){
-    const el=document.getElementById('message'); el.textContent=text; el.className='notice'+(isError?' error':'');
-    setTimeout(()=>el.classList.add('hidden'),6000);
-  }
-  async function countTable(table){
-    const r=await fetch(`${cfg.url}/rest/v1/${table}?select=id`,{method:'HEAD',headers:headers({Prefer:'count=exact'})});
-    if(!r.ok) throw new Error(`${table}: ${r.status}`);
-    const range=r.headers.get('content-range')||'0/0'; return range.split('/')[1]||'0';
-  }
-  async function loadDashboard(){
-    if(!cfg.key){ document.getElementById('connectionText').textContent='Masukkan Publishable Key di menu Pengaturan.'; return; }
-    try{
-      const [b,c,s,w]=await Promise.all([countTable('master_barang'),countTable('customers'),countTable('suppliers'),countTable('warehouses')]);
-      document.getElementById('countBarang').textContent=b; document.getElementById('countCustomer').textContent=c;
-      document.getElementById('countSupplier').textContent=s; document.getElementById('countGudang').textContent=w;
-      document.getElementById('connectionText').textContent='Terhubung ke Supabase.';
-    }catch(e){
-      document.getElementById('connectionText').textContent='Koneksi belum diizinkan. Login/RLS policy perlu disiapkan.';
-      showMessage('Database belum dapat dibaca: '+e.message,true);
+  function openCustomer() {
+  document.getElementById("customerDialog").showModal();
+}
+
+async function saveCustomer() {
+  try {
+    const form = document.getElementById("customerForm");
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    if (!cfg.url || !cfg.key) {
+      throw new Error("Supabase URL dan Publishable Key belum disimpan.");
     }
-  }
-  function loadSettings(){ document.getElementById('projectUrl').value=cfg.url; document.getElementById('publishableKey').value=cfg.key; }
-  function saveSettings(){
-    const url=document.getElementById('projectUrl').value.trim().replace(/\/$/,'');
-    const key=document.getElementById('publishableKey').value.trim();
-    if(!url||!key){showMessage('Project URL dan Publishable Key wajib diisi.',true);return;}
-    localStorage.setItem('hanyojo_url',url); localStorage.setItem('hanyojo_key',key);
-    showMessage('Pengaturan tersimpan hanya di browser perangkat ini.'); loadDashboard();
-  }
-  async function testConnection(){
-  try{
-    const n = await countTable('master_barang');
-    showMessage('Koneksi berhasil. Total barang: ' + n);
-  } catch(e){
-    showMessage('Tes gagal. Kemungkinan RLS/policy belum diatur: ' + e.message, true);
-  }
-}
-    async function loadBarang(){
-    if(!cfg.key){document.getElementById('barangTable').innerHTML='Simpan Publishable Key di menu Pengaturan dahulu.';return;}
-    try{
-      const r=await fetch(`${cfg.url}/rest/v1/master_barang?select=id,kode_barang,nama_barang,kategori,satuan,harga_beli&order=id.desc`,{headers:headers()});
-      if(!r.ok) throw new Error(r.status); const rows=await r.json();
-      document.getElementById('barangTable').innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Satuan</th><th>Harga Beli</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.kode_barang)}</td><td>${esc(x.nama_barang)}</td><td>${esc(x.kategori||'')}</td><td>${esc(x.satuan||'')}</td><td>Rp${Number(x.harga_beli||0).toLocaleString('id-ID')}</td></tr>`).join('')}</tbody></table>`:'Belum ada data barang.';
-    }catch(e){document.getElementById('barangTable').innerHTML='Data belum dapat dibaca. Atur login/RLS policy terlebih dahulu.';}
-  }
-  function openBarang(){document.getElementById('barangDialog').showModal();}
-  async function saveBarang(){
-    try{
-      const data=Object.fromEntries(new FormData(document.getElementById('barangForm')).entries()); data.harga_beli=Number(data.harga_beli||0);
-      const r=await fetch(`${cfg.url}/rest/v1/master_barang`,{method:'POST',headers:headers({'Content-Type':'application/json',Prefer:'return=minimal'}),body:JSON.stringify(data)});
-      if(!r.ok) throw new Error(await r.text()); document.getElementById('barangDialog').close(); document.getElementById('barangForm').reset();
-      showMessage('Barang berhasil disimpan.'); loadBarang(); loadDashboard();
-    }catch(e){showMessage('Belum bisa menyimpan. Login/RLS policy perlu disiapkan: '+e.message,true);}
-  }
-
- function openCustomer(){
-  document.getElementById('customerDialog').showModal();
-}
-
-async function saveCustomer(){
-  try{
-    const data = Object.fromEntries(
-      new FormData(document.getElementById('customerForm'))
-    );data.nama_toko = data.nama_customer;
 
     const r = await fetch(`${cfg.url}/rest/v1/customers`, {
-      method:'POST',
-      headers:headers({'Content-Type':'application/json','Prefer':'return=representation'}),
-      body:JSON.stringify(data)
-    });
-
-    if(!r.ok) throw new Error(await r.text());
-
-    document.getElementById('customerDialog').close();
-    document.getElementById('customerForm').reset();
-    showMessage('Customer berhasil disimpan.');
-    loadCustomers();
-    loadDashboard();
-  }catch(e){
-    showMessage('Customer belum bisa disimpan: ' + e.message, true);
-  }
-}
-  async function loadCustomers(){
-  if(!cfg.key){
-    document.getElementById('customerTable').innerHTML='Simpan Publishable Key terlebih dahulu.';
-    return;
-  }
-
-  try{
-    const r = await fetch(
-      `${cfg.url}/rest/v1/customers?select=*`,
-      {headers:headers()}
-    );
-
-    if(!r.ok) throw new Error(await r.text());
-
-    const rows = await r.json();
-
-    document.getElementById('customerTable').innerHTML =
-      rows.length
-        ? `<table><thead><tr><th>Nama Customer</th><th>Tipe Customer</th><th>Telepon</th><th>Alamat</th></tr></thead><tbody>${
-           rows.map(x => `
-  <tr>
-    <td>${esc(x.nama_customer || '')}</td>
-    <td>${esc(x.tipe_customer || '')}</td>
-    <td>${esc(x.nomor_hp || '')}</td>
-    <td>${esc(x.alamat || '')}</td>
-  </tr>
-`).join("")
-          }</tbody></table>`
-        : 'Belum ada data customer';
-
-  }catch(e){
-    document.getElementById('customerTable').innerHTML =
-      'Data customer belum dapat dibaca: ' + e.message;
-  }
-}
-function openSupplier(){
-  document.getElementById('supplierDialog').showModal();
-}
-
-async function saveSupplier(){
-  try{
-    const data = Object.fromEntries(
-      new FormData(document.getElementById('supplierForm'))
-    );
-data.nomor_hp = data.no_hp || '';
-
-delete data.no_hp;
-    const r = await fetch(`${cfg.url}/rest/v1/suppliers`, {
-      method: 'POST',
+      method: "POST",
       headers: headers({
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+        "Prefer": "return=representation"
       }),
       body: JSON.stringify(data)
     });
 
-    if(!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
 
-    document.getElementById('supplierDialog').close();
-    document.getElementById('supplierForm').reset();
-    showMessage('Supplier berhasil disimpan.');
-    loadSuppliers();
+    document.getElementById("customerDialog").close();
+    form.reset();
 
-  }catch(e){
-    showMessage('Supplier belum bisa disimpan: ' + e.message, true);
+    showMessage("Customer berhasil disimpan.");
+    await loadCustomers();
+
+  } catch (e) {
+    showMessage("Customer belum bisa disimpan: " + e.message);
   }
 }
 
-async function loadSuppliers(){
-  if(!cfg.key){
-    document.getElementById('supplierTable').innerHTML =
-      'Simpan Publishable Key terlebih dahulu.';
+async function loadCustomers() {
+  const table = document.getElementById("customerTable");
+
+  if (!cfg.url || !cfg.key) {
+    table.innerHTML = "Supabase URL dan Publishable Key belum disimpan.";
     return;
   }
 
-  try{
+  try {
     const r = await fetch(
-      `${cfg.url}/rest/v1/suppliers?select=*`,
-      {headers: headers()}
+      `${cfg.url}/rest/v1/customers?select=*&order=id.desc`,
+      { headers: headers() }
     );
 
-    if(!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
 
     const rows = await r.json();
 
-    document.getElementById('supplierTable').innerHTML =
-      rows.length
-      ? `<table><thead><tr><th>Nama Supplier</th><th>Telepon</th><th>Email</th><th>Alamat</th></tr></thead><tbody>${
-          rows.map(x => `
+    table.innerHTML = rows.length
+      ? `<table>
+          <thead>
             <tr>
-              <td>${esc(x.nama_supplier || '')}</td>
-              <td>${esc(x.nomor_hp || '')}</td>
-              <td>${esc(x.email || '')}</td>
-              <td>${esc(x.alamat || '')}</td>
+              <th>Nama Customer</th>
+              <th>Tipe Customer</th>
+              <th>Telepon</th>
+              <th>Alamat</th>
             </tr>
-          `).join("")
-        }</tbody></table>`
-      : 'Belum ada data supplier';
+          </thead>
+          <tbody>
+            ${rows.map(x => `
+              <tr>
+                <td>${esc(x.nama_customer || "")}</td>
+                <td>${esc(x.tipe_customer || "")}</td>
+                <td>${esc(x.nomor_hp || "")}</td>
+                <td>${esc(x.alamat || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`
+      : "Belum ada data customer.";
 
-  }catch(e){
-    document.getElementById('supplierTable').innerHTML =
-      'Data supplier belum dapat dibaca: ' + e.message;
+  } catch (e) {
+    table.innerHTML =
+      "Data customer belum dapat dibaca: " + esc(e.message);
   }
 }
 
-function esc(v) {
-  return String(v ?? '').replace(/[&<>"']/g, m => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[m]));
+  async function loadSuppliers() {
+  const table = document.getElementById("supplierTable");
+  if (!table) return;
+
+  try {
+    if (!cfg.url || !cfg.key) {
+      table.innerHTML = "Supabase URL / API Key belum tersedia.";
+      return;
+    }
+
+    const r = await fetch(
+      cfg.url + "/rest/v1/suppliers?select=*&order=id.desc",
+      {
+        method: "GET",
+        headers: headers()
+      }
+    );
+
+    if (!r.ok) {
+      const errorText = await r.text();
+      throw new Error(errorText);
+    }
+
+    const rows = await r.json();
+
+    table.innerHTML = rows.length
+      ? `<table>
+          <thead>
+            <tr>
+              <th>Nama Supplier</th>
+              <th>Telepon</th>
+              <th>Email</th>
+              <th>Alamat</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(x => `
+              <tr>
+                <td>${esc(x.nama_supplier || "")}</td>
+                <td>${esc(x.nomor_hp || "")}</td>
+                <td>${esc(x.email || "")}</td>
+                <td>${esc(x.alamat || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`
+      : "Belum ada data supplier.";
+
+  } catch (e) {
+    table.innerHTML =
+      "Data supplier belum dapat dibaca: " + esc(e.message);
+  }
 }
-  loadSettings(); loadDashboard();
 </script>
 </body>
 </html>
