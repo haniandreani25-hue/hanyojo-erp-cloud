@@ -286,7 +286,50 @@ function esc(value) {
   function openSupplier() {
   document.getElementById("supplierDialog").showModal();
 }
+async function saveSupplier() {
+  try {
+    const form = document.getElementById("supplierForm");
+    const f = Object.fromEntries(new FormData(form).entries());
 
+    const data = {
+      nama_supplier: f.nama_supplier,
+      nama_perusahaan: f.nama_perusahaan || null,
+      nomor_hp: f.no_hp || null,
+      email: f.email || null,
+      alamat: f.alamat || null,
+      nama_pic: f.nama_pic || null,
+      npwp: f.npwp || null,
+      rekening_bank: f.rekening_bank || null,
+      termin_pembayaran: Number(f.termin_pembayaran || 0),
+      catatan: f.catatan || null
+    };
+
+    if (!cfg.url || !cfg.key) {
+      throw new Error("Supabase URL dan Publishable Key belum disimpan.");
+    }
+
+    const r = await fetch(`${cfg.url}/rest/v1/suppliers`, {
+      method: "POST",
+      headers: headers({
+        "Prefer": "return=representation"
+      }),
+      body: JSON.stringify(data)
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    document.getElementById("supplierDialog").close();
+    form.reset();
+
+    showMessage("Supplier berhasil disimpan.");
+    await loadSuppliers();
+
+  } catch (e) {
+    showMessage("Supplier belum bisa disimpan: " + e.message);
+  }
+}
   
 
 async function saveCustomer() {
