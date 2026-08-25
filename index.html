@@ -432,6 +432,7 @@ async function loadCustomers() {
               <th>Tipe Customer</th>
               <th>Telepon</th>
               <th>Alamat</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -441,6 +442,7 @@ async function loadCustomers() {
                 <td>${esc(x.tipe_customer || "")}</td>
                 <td>${esc(x.nomor_hp || "")}</td>
                 <td>${esc(x.alamat || "")}</td>
+                <td><button onclick="editCustomer('${x.id}')">Edit</button> <button onclick="deleteCustomer('${x.id}')">Hapus</button></td>
               </tr>
             `).join("")}
           </tbody>
@@ -453,6 +455,81 @@ async function loadCustomers() {
   }
 }
 
+async function deleteCustomer(id) {
+  if (!confirm("Yakin ingin menghapus customer ini?")) return;
+
+  try {
+    const r = await fetch(`${cfg.url}/rest/v1/customers?id=eq.${id}`, {
+      method: "DELETE",
+      headers: headers()
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    showMessage("Customer berhasil dihapus.");
+    await loadCustomers();
+
+  } catch (e) {
+    showMessage("Customer gagal dihapus: " + e.message);
+  }
+} 
+
+async function editCustomer(id) {
+  try {
+    const r = await fetch(`${cfg.url}/rest/v1/customers?id=eq.${id}&select=*`, {
+      method: "GET",
+      headers: headers()
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    const rows = await r.json();
+    const x = rows[0];
+
+    if (!x) {
+      showMessage("Data customer tidak ditemukan.");
+      return;
+    }
+
+    const nama = prompt("Nama Customer:", x.nama_customer || "");
+    if (nama === null) return;
+
+    const tipe = prompt("Tipe Customer:", x.tipe_customer || "Retail");
+    if (tipe === null) return;
+
+    const telepon = prompt("Telepon:", x.nomor_hp || "");
+    if (telepon === null) return;
+
+    const alamat = prompt("Alamat:", x.alamat || "");
+    if (alamat === null) return;
+
+    const update = await fetch(`${cfg.url}/rest/v1/customers?id=eq.${id}`, {
+      method: "PATCH",
+      headers: headers(),
+      body: JSON.stringify({
+        nama_customer: nama,
+        tipe_customer: tipe,
+        nomor_hp: telepon,
+        alamat: alamat
+      })
+    });
+
+    if (!update.ok) {
+      throw new Error(await update.text());
+    }
+
+    showMessage("Customer berhasil diperbarui.");
+    await loadCustomers();
+
+  } catch (e) {
+    showMessage("Customer gagal diperbarui: " + e.message);
+  }
+}
+  
   async function loadSuppliers() {
   const table = document.getElementById("supplierTable");
   if (!table) return;
