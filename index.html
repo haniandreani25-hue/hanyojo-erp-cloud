@@ -256,7 +256,47 @@ document.querySelectorAll(".menu button").forEach((button) => {
     return localStorage.getItem("hanyojo_key") || "";
   }
 };
+function saveSettings() {
+  const url = document.getElementById("projectUrl").value.trim();
+  const key = document.getElementById("publishableKey").value.trim();
 
+  if (!url || !key) {
+    alert("Project URL dan Publishable Key wajib diisi.");
+    return;
+  }
+
+  localStorage.setItem("hanyojo_url", url);
+  localStorage.setItem("hanyojo_key", key);
+
+  alert("Pengaturan berhasil disimpan.");
+}
+
+async function testConnection() {
+  const url = document.getElementById("projectUrl").value.trim();
+  const key = document.getElementById("publishableKey").value.trim();
+
+  if (!url || !key) {
+    alert("Project URL dan Publishable Key wajib diisi.");
+    return;
+  }
+
+  try {
+    const r = await fetch(`${url}/rest/v1/customers?select=*&limit=1`, {
+      headers: {
+        apikey: key,
+        Authorization: "Bearer " + key
+      }
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    alert("Koneksi Supabase berhasil.");
+  } catch (e) {
+    alert("Koneksi gagal: " + e.message);
+  }
+}
 function headers(extra = {}) {
   return {
     "apikey": cfg.key,
