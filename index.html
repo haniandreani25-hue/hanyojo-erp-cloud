@@ -246,6 +246,10 @@ document.querySelectorAll(".menu button").forEach((button) => {
     if (page === "suppliers" && typeof loadSuppliers === "function") {
       loadSuppliers();
     }
+if (page === "dashboard" && typeof loadDashboard === "function") {
+  loadDashboard();
+}
+    
   });
 });
   const cfg = {
@@ -401,6 +405,42 @@ async function saveCustomer() {
 
   } catch (e) {
     showMessage("Customer belum bisa disimpan: " + e.message);
+  }
+}
+
+  async function loadDashboard() {
+  if (!cfg.url || !cfg.key) {
+    document.getElementById("connectionText").textContent =
+      "Masukkan Publishable Key di menu Pengaturan.";
+    return;
+  }
+
+  try {
+    const getCount = async (table) => {
+      const r = await fetch(`${cfg.url}/rest/v1/${table}?select=id`, {
+        headers: headers({
+          "Prefer": "count=exact"
+        })
+      });
+
+      if (!r.ok) throw new Error(await r.text());
+
+      const rows = await r.json();
+      return rows.length;
+    };
+
+    document.getElementById("countCustomer").textContent =
+      await getCount("customers");
+
+    document.getElementById("countSupplier").textContent =
+      await getCount("suppliers");
+
+    document.getElementById("connectionText").textContent =
+      "Supabase terhubung";
+
+  } catch (e) {
+    document.getElementById("connectionText").textContent =
+      "Koneksi database bermasalah";
   }
 }
 
