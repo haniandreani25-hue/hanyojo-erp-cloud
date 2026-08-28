@@ -603,6 +603,7 @@ async function editCustomer(id) {
               <th>Telepon</th>
               <th>Email</th>
               <th>Alamat</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -612,6 +613,7 @@ async function editCustomer(id) {
                 <td>${esc(x.nomor_hp || "")}</td>
                 <td>${esc(x.email || "")}</td>
                 <td>${esc(x.alamat || "")}</td>
+                <td><button onclick="editSupplier('${x.id}')">Edit</button> <button onclick="deleteSupplier('${x.id}')">Hapus</button></td>
               </tr>
             `).join("")}
           </tbody>
