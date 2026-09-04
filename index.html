@@ -443,8 +443,54 @@ async function saveCustomer() {
       "Koneksi database bermasalah";
   }
 }
+async function loadBarang() {
+  const table = document.getElementById("barangTable");
+  if (!table) return;
 
-async function loadCustomers() {
+  if (!cfg.url || !cfg.key) {
+    table.innerHTML = "Supabase URL dan Publishable Key belum disimpan.";
+    return;
+  }
+
+  try {
+    const r = await fetch(
+      `${cfg.url}/rest/v1/master_barang?select=*&order=id.desc`,
+      { headers: headers() }
+    );
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    const rows = await r.json();
+
+    table.innerHTML = rows.length
+      ? `<table>
+          <thead>
+            <tr>
+              <th>Kode Barang</th>
+              <th>Nama Barang</th>
+              <th>Stok</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(x => `
+              <tr>
+                <td>${esc(x.kode_barang || "")}</td>
+                <td>${esc(x.nama_barang || "")}</td>
+                <td>${esc(x.stok || 0)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`
+      : "Belum ada data barang.";
+  } catch (e) {
+    table.innerHTML = "Data barang belum dapat dibaca: " + esc(e.message);
+  }
+}
+
+  
+  async function loadCustomers() {
   const table = document.getElementById("customerTable");
 
   if (!cfg.url || !cfg.key) {
