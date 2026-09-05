@@ -322,7 +322,9 @@ function esc(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
+function openBarang() {
+  document.getElementById("barangDialog").showModal();
+}
   function openCustomer() {
   document.getElementById("customerDialog").showModal();
 }
