@@ -324,7 +324,48 @@ function esc(value) {
 }
 function openBarang() {
   document.getElementById("barangDialog").showModal();
+}async function saveBarang() {
+  const form = document.getElementById("barangForm");
+  const f = Object.fromEntries(new FormData(form).entries());
+
+  const data = {
+    kode_barang: f.kode_barang,
+    nama_barang: f.nama_barang,
+    kategori: f.kategori || null,
+    satuan: f.satuan || "PCS",
+    harga_beli: Number(f.harga_beli || 0)
+  };
+
+  if (!cfg.url || !cfg.key) {
+    showMessage("Supabase URL dan Publishable Key belum disimpan.");
+    return;
+  }
+
+  try {
+    const r = await fetch(`${cfg.url}/rest/v1/master_barang`, {
+      method: "POST",
+      headers: headers({
+        "Prefer": "return=representation"
+      }),
+      body: JSON.stringify(data)
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    document.getElementById("barangDialog").close();
+    form.reset();
+
+    showMessage("Barang berhasil disimpan.");
+    await loadBarang();
+
+  } catch (e) {
+    showMessage("Barang belum bisa disimpan: " + e.message);
+  }
 }
+
+  
   function openCustomer() {
   document.getElementById("customerDialog").showModal();
 }
