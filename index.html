@@ -514,6 +514,7 @@ async function loadBarang() {
               <th>Kode Barang</th>
               <th>Nama Barang</th>
               <th>Stok</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -522,6 +523,7 @@ async function loadBarang() {
                 <td>${esc(x.kode_barang || "")}</td>
                 <td>${esc(x.nama_barang || "")}</td>
                 <td>${esc(x.stok || 0)}</td>
+                <td><button class="btn" onclick="editBarang('${x.id}')">Edit</button> <button class="btn secondary" onclick="hapusBarang('${x.id}')">Hapus</button></td>
               </tr>
             `).join("")}
           </tbody>
