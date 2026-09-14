@@ -532,7 +532,26 @@ async function loadBarang() {
     table.innerHTML = "Data barang belum dapat dibaca: " + esc(e.message);
   }
 }
+async function hapusBarang(id) {
+  if (!confirm("Yakin ingin menghapus barang ini?")) return;
 
+  try {
+    const r = await fetch(`${cfg.url}/rest/v1/master_barang?id=eq.${id}`, {
+      method: "DELETE",
+      headers: headers()
+    });
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    showMessage("Barang berhasil dihapus.");
+    await loadBarang();
+
+  } catch (e) {
+    showMessage("Barang gagal dihapus: " + e.message);
+  }
+}
   
   async function loadCustomers() {
   const table = document.getElementById("customerTable");
