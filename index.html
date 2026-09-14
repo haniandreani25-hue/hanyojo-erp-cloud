@@ -542,7 +542,16 @@ async function hapusBarang(id) {
     });
 
     if (!r.ok) {
+throw new Error(await r.text());
+}
 
+showMessage("Barang berhasil dihapus.");
+await loadBarang();
+
+} catch (e) {
+showMessage("Barang gagal dihapus: " + e.message);
+}
+}
       async function editBarang(id) {
   try {
     const r = await fetch(
