@@ -327,7 +327,7 @@ function openBarang() {
 }async function saveBarang() {
   const form = document.getElementById("barangForm");
   const f = Object.fromEntries(new FormData(form).entries());
-
+const editId = form.dataset.editId;
   const data = {
     kode_barang: f.kode_barang,
     nama_barang: f.nama_barang,
@@ -342,8 +342,8 @@ function openBarang() {
   }
 
   try {
-    const r = await fetch(`${cfg.url}/rest/v1/master_barang`, {
-      method: "POST",
+    const r = await fetch(`${cfg.url}/rest/v1/master_barang${editId ? `?id=eq.${editId}` : ""}`, {
+      method: editId ? "PATCH" : "POST",
       headers: headers({
         "Prefer": "return=representation"
       }),
@@ -355,7 +355,7 @@ function openBarang() {
     }
 
     document.getElementById("barangDialog").close();
-    form.reset();
+    form.reset();delete form.dataset.editId;
 
     showMessage("Barang berhasil disimpan.");
     await loadBarang();
@@ -542,6 +542,42 @@ async function hapusBarang(id) {
     });
 
     if (!r.ok) {
+
+      async function editBarang(id) {
+  try {
+    const r = await fetch(
+      `${cfg.url}/rest/v1/master_barang?id=eq.${id}&select=*`,
+      { headers: headers() }
+    );
+
+    if (!r.ok) {
+      throw new Error(await r.text());
+    }
+
+    const rows = await r.json();
+
+    if (!rows.length) {
+      showMessage("Data barang tidak ditemukan.");
+      return;
+    }
+
+    const barang = rows[0];
+    const form = document.getElementById("barangForm");
+
+    form.kode_barang.value = barang.kode_barang || "";
+    form.nama_barang.value = barang.nama_barang || "";
+    form.kategori.value = barang.kategori || "";
+    form.satuan.value = barang.satuan || "PCS";
+    form.harga_beli.value = barang.harga_beli || 0;
+
+    form.dataset.editId = id;
+
+    document.getElementById("barangDialog").showModal();
+
+  } catch (e) {
+    showMessage("Data barang gagal dibuka: " + e.message);
+  }
+}
       throw new Error(await r.text());
     }
 
