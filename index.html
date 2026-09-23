@@ -587,16 +587,6 @@ showMessage("Barang gagal dihapus: " + e.message);
     showMessage("Data barang gagal dibuka: " + e.message);
   }
 }
-      throw new Error(await r.text());
-    }
-
-    showMessage("Barang berhasil dihapus.");
-    await loadBarang();
-
-  } catch (e) {
-    showMessage("Barang gagal dihapus: " + e.message);
-  }
-}
   
   async function loadCustomers() {
   const table = document.getElementById("customerTable");
