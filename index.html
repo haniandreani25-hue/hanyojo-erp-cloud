@@ -143,6 +143,8 @@
 <div class="panel"><div class="toolbar"><h3>Kas & Bank</h3><button class="btn secondary" onclick="loadFinance()">Muat Ulang</button></div><div id="accountCards" class="cards"></div></div>
 <div class="panel" style="margin-top:20px"><h3>Piutang Customer</h3><p class="small">Catat pembayaran yang sudah diterima. Pembayaran dapat sebagian atau lunas.</p><div id="receivableTable" class="table-wrap"></div></div>
 <div class="panel" style="margin-top:20px"><h3>Riwayat Pembayaran Piutang</h3><div id="paymentHistory" class="table-wrap"></div></div>
+<div class="panel" style="margin-top:20px"><h3>Utang Supplier</h3><p class="small">Catat pembayaran yang sudah dilakukan kepada supplier. Pembayaran dapat sebagian atau lunas.</p><div id="payableTable" class="table-wrap"></div></div>
+<div class="panel" style="margin-top:20px"><h3>Riwayat Pembayaran Utang</h3><div id="payableHistory" class="table-wrap"></div></div>
 <div class="panel" style="margin-top:20px"><h3>Mutasi Kas & Bank</h3><div id="cashHistory" class="table-wrap"></div></div>
 </section>
     <section id="settings" class="section">
@@ -168,6 +170,16 @@
 <label class="full">Catatan<input class="input" name="catatan" maxlength="2000" placeholder="Contoh: latihan pembayaran piutang"></label>
 </div><p id="paymentError" role="alert" class="small" style="color:#b91c1c;margin-top:12px"></p>
 <div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('paymentDialog').close()">Batal</button><button id="savePayment" class="btn" type="submit">Simpan Pembayaran</button></div>
+</form></dialog>
+<dialog id="payablePaymentDialog"><form id="payablePaymentForm" class="modal">
+<h3>Bayar Utang Supplier</h3><p id="payablePaymentSummary"></p><div class="form-grid">
+<label>Tanggal Pembayaran<input class="input" name="tanggal" type="date" required></label>
+<label>Metode<select class="input" name="metode" onchange="updatePayablePaymentAccount()"><option>Tunai</option><option>Transfer</option></select></label>
+<label>Rekening Pembayar<select class="input" name="account" required></select></label>
+<label>Jumlah Dibayar<input class="input" name="jumlah" type="number" min="0.01" step="0.01" required></label>
+<label class="full">Catatan<input class="input" name="catatan" maxlength="2000" placeholder="Contoh: latihan pembayaran utang"></label>
+</div><p id="payablePaymentError" role="alert" class="small" style="color:#b91c1c;margin-top:12px"></p>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('payablePaymentDialog').close()">Batal</button><button id="savePayablePayment" class="btn" type="submit">Simpan Pembayaran</button></div>
 </form></dialog>
 <dialog id="barangDialog">
   <form method="dialog" class="modal" id="barangForm">
@@ -1166,14 +1178,16 @@ document.getElementById('saleForm').addEventListener('submit',async e=>{
 
 let financeAccounts=[],paymentReceivable=null,paymentRequest=null,paymentPending=false,paymentAttempt=null;
 async function loadFinance(){
- const targets=['accountCards','receivableTable','paymentHistory','cashHistory'];targets.forEach(id=>document.getElementById(id).textContent='Memuat…');
+ const targets=['accountCards','receivableTable','paymentHistory','payableTable','payableHistory','cashHistory'];targets.forEach(id=>document.getElementById(id).textContent='Memuat…');
  const requests=[
   ['accountCards','cash_accounts?select=id,name,account_type,balance,active&order=name',rows=>{financeAccounts=rows.filter(x=>x.active);return rows.map(x=>`<div class="card"><p>${esc(x.name)}${x.active?'':' (nonaktif)'}</p><h3>${esc(rupiah(x.balance))}</h3></div>`).join('')||'Belum ada rekening.';}],
   ['receivableTable','receivables?select=*,sales(nomor_penjualan,tanggal),customers(nama_customer)&order=id.desc&limit=100',rows=>rows.length?`<table><thead><tr><th>Penjualan</th><th>Customer</th><th>Jatuh Tempo</th><th>Total</th><th>Dibayar</th><th>Sisa</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.sales?.nomor_penjualan)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(x.due_date)}</td><td>${esc(rupiah(x.total))}</td><td>${esc(rupiah(x.paid))}</td><td>${esc(rupiah(Number(x.total)-Number(x.paid)))}</td><td>${esc(x.status)}</td><td>${Number(x.total)>Number(x.paid)?`<button class="btn receive-payment" data-id="${esc(x.id)}">Terima Pembayaran</button>`:''}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 piutang terbaru.</p>`:'Belum ada piutang.'],
   ['paymentHistory','payments?select=id,tanggal,metode,jumlah,keterangan,sales(nomor_penjualan),customers(nama_customer),cash_accounts(name)&order=id.desc&limit=100',rows=>rows.length?`<table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Customer</th><th>Metode</th><th>Rekening</th><th>Jumlah</th><th>Catatan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.tanggal)}</td><td>${esc(x.sales?.nomor_penjualan)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(x.metode)}</td><td>${esc(x.cash_accounts?.name)}</td><td>${esc(rupiah(x.jumlah))}</td><td>${esc(x.keterangan)}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 pembayaran terbaru.</p>`:'Belum ada pembayaran piutang.'],
+  ['payableTable','payables?select=*,purchases(nomor_pembelian,tanggal),suppliers(nama_supplier)&order=id.desc&limit=100',rows=>rows.length?`<table><thead><tr><th>Pembelian</th><th>Supplier</th><th>Jatuh Tempo</th><th>Total</th><th>Dibayar</th><th>Sisa</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.purchases?.nomor_pembelian)}</td><td>${esc(x.suppliers?.nama_supplier)}</td><td>${esc(x.due_date)}</td><td>${esc(rupiah(x.total))}</td><td>${esc(rupiah(x.paid_amount))}</td><td>${esc(rupiah(Number(x.total)-Number(x.paid_amount)))}</td><td>${Number(x.paid_amount)>=Number(x.total)?'Lunas':Number(x.paid_amount)>0?'Sebagian':'Belum Lunas'}</td><td>${Number(x.total)>Number(x.paid_amount)?`<button class="btn pay-payable" data-id="${esc(x.id)}">Bayar Utang</button>`:''}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 utang terbaru.</p>`:'Belum ada utang.'],
+  ['payableHistory','payable_payments?select=*,payables(purchases(nomor_pembelian),suppliers(nama_supplier)),cash_accounts(name)&order=id.desc&limit=100',rows=>rows.length?`<table><thead><tr><th>Tanggal</th><th>Pembelian</th><th>Supplier</th><th>Metode</th><th>Rekening</th><th>Jumlah</th><th>Catatan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.payment_date)}</td><td>${esc(x.payables?.purchases?.nomor_pembelian)}</td><td>${esc(x.payables?.suppliers?.nama_supplier)}</td><td>${esc(x.method)}</td><td>${esc(x.cash_accounts?.name)}</td><td>${esc(rupiah(x.amount))}</td><td>${esc(x.description)}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 pembayaran terbaru.</p>`:'Belum ada pembayaran utang.'],
   ['cashHistory','cash_transactions?select=*,cash_accounts(name)&order=id.desc&limit=100',rows=>rows.length?`<table><thead><tr><th>Tanggal</th><th>Rekening</th><th>Arah</th><th>Jumlah</th><th>Referensi</th><th>Keterangan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.transaction_date)}</td><td>${esc(x.cash_accounts?.name)}</td><td>${esc(x.direction)}</td><td>${esc(rupiah(x.amount))}</td><td>${esc(x.reference)}</td><td>${esc(x.description)}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 mutasi terbaru.</p>`:'Belum ada mutasi Kas & Bank.']
  ];
- await Promise.allSettled(requests.map(async([id,path,render])=>{const target=document.getElementById(id);try{target.innerHTML=render(await api(path));if(id==='receivableTable')target.querySelectorAll('.receive-payment').forEach(b=>b.onclick=()=>openPayment(b.dataset.id,b));}catch(e){target.textContent='Belum dapat dibaca: '+e.message;}}));
+ await Promise.allSettled(requests.map(async([id,path,render])=>{const target=document.getElementById(id);try{target.innerHTML=render(await api(path));if(id==='receivableTable')target.querySelectorAll('.receive-payment').forEach(b=>b.onclick=()=>openPayment(b.dataset.id,b));if(id==='payableTable')target.querySelectorAll('.pay-payable').forEach(b=>b.onclick=()=>openPayablePayment(b.dataset.id,b));}catch(e){target.textContent='Belum dapat dibaca: '+e.message;}}));
 }
 async function openPayment(id,button){
  if(button)button.disabled=true;
@@ -1201,6 +1215,35 @@ document.getElementById('paymentForm').addEventListener('submit',async e=>{
  try{await api('rpc/hanyojo_pay_receivable',payload);document.getElementById('paymentDialog').close();showMessage('Pembayaran berhasil disimpan. Piutang berkurang dan saldo rekening bertambah.');await loadFinance();}
  catch(err){error.textContent='Belum dapat memastikan pembayaran: '+err.message+' Periksa riwayat sebelum membuat pembayaran baru. Mengulang data yang sama tidak mencatat dua kali.';}
  finally{paymentPending=false;controls.forEach(([el,disabled])=>el.disabled=disabled);document.getElementById('savePayment').textContent='Simpan Pembayaran';}
+});
+
+let payablePaymentPayable=null,payablePaymentRequest=null,payablePaymentPending=false,payablePaymentAttempt=null;
+async function openPayablePayment(id,button){
+ if(button)button.disabled=true;
+ try{
+  const [rows,accounts]=await Promise.all([api('payables?select=*,purchases(nomor_pembelian,tanggal),suppliers(nama_supplier)&id=eq.'+encodeURIComponent(id)),api('cash_accounts?select=id,name,account_type&active=eq.true&order=name')]);
+  const r=rows[0];if(!r||Number(r.total)<=Number(r.paid_amount))throw new Error('Utang sudah lunas atau tidak ditemukan. Muat ulang daftar.');
+  payablePaymentPayable=r;financeAccounts=accounts;payablePaymentRequest=crypto.randomUUID();payablePaymentAttempt=null;
+  const f=document.getElementById('payablePaymentForm');f.reset();f.elements.tanggal.value=todayJakarta();f.elements.tanggal.min=r.purchases?.tanggal||'';
+  f.elements.jumlah.value=(Number(r.total)-Number(r.paid_amount)).toFixed(2);f.elements.jumlah.max=f.elements.jumlah.value;
+  document.getElementById('payablePaymentSummary').textContent=(r.purchases?.nomor_pembelian||'')+' · '+(r.suppliers?.nama_supplier||'')+' · Sisa '+rupiah(Number(r.total)-Number(r.paid_amount));
+  document.getElementById('payablePaymentError').textContent='';updatePayablePaymentAccount();document.getElementById('payablePaymentDialog').showModal();
+ }catch(e){showMessage(e.message);}finally{if(button)button.disabled=false;}
+}
+function updatePayablePaymentAccount(){const f=document.getElementById('payablePaymentForm'),type=f.elements.metode.value==='Tunai'?'Kas':'Bank',previous=f.elements.account.value;
+ f.elements.account.innerHTML='<option value="">Pilih rekening pembayar</option>'+financeAccounts.filter(x=>x.account_type===type).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+ if([...f.elements.account.options].some(x=>x.value===previous))f.elements.account.value=previous;
+}
+document.getElementById('payablePaymentDialog').addEventListener('cancel',e=>{if(payablePaymentPending)e.preventDefault();});
+document.getElementById('payablePaymentForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(payablePaymentPending)return;const f=e.currentTarget,error=document.getElementById('payablePaymentError');error.textContent='';if(!f.reportValidity())return;
+ const amount=Number(f.elements.jumlah.value);if(!Number.isFinite(amount)||amount<=0||amount>Number(payablePaymentPayable.total)-Number(payablePaymentPayable.paid_amount)){error.textContent='Jumlah harus positif dan tidak melebihi sisa utang.';return;}
+ const payload={p_request:payablePaymentRequest,p_payable:payablePaymentPayable.id,p_tanggal:f.elements.tanggal.value,p_metode:f.elements.metode.value,p_account:f.elements.account.value,p_jumlah:amount,p_catatan:f.elements.catatan.value.trim()};
+ if(payablePaymentAttempt&&JSON.stringify(payload)!==JSON.stringify(payablePaymentAttempt)){error.textContent='Periksa riwayat pembayaran dahulu. Jika percobaan sebelumnya belum tercatat, tutup formulir lalu buka kembali untuk mengubah data.';return;}
+ payablePaymentAttempt=payload;payablePaymentPending=true;const controls=[...f.querySelectorAll('input,select,button')].map(el=>[el,el.disabled]);controls.forEach(([el])=>el.disabled=true);document.getElementById('savePayablePayment').textContent='Menyimpan…';
+ try{await api('rpc/hanyojo_pay_payable',payload);document.getElementById('payablePaymentDialog').close();showMessage('Pembayaran berhasil disimpan. Utang berkurang dan saldo rekening berkurang.');await loadFinance();}
+ catch(err){error.textContent='Belum dapat memastikan pembayaran: '+err.message+' Periksa riwayat sebelum membuat pembayaran baru. Mengulang data yang sama tidak mencatat dua kali.';}
+ finally{payablePaymentPending=false;controls.forEach(([el,disabled])=>el.disabled=disabled);document.getElementById('savePayablePayment').textContent='Simpan Pembayaran';}
 });
 
 initAuth();
