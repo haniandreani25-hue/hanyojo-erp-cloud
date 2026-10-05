@@ -136,6 +136,8 @@
     <div id="supplierTable" class="table-wrap">Belum ada data supplier.</div>
   </div>
 </section>
+<section id="purchases" class="section"><div class="panel"><div class="toolbar"><h3>Pembelian</h3><button id="newPurchase" class="btn" onclick="openPurchase()">+ Tambah Pembelian</button><button class="btn secondary" onclick="loadPurchases()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diterima. Penyimpanan akan menambah stok gudang.</p><div id="purchaseTable" class="table-wrap"></div></div></section>
+<section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><div id="stockTable" class="table-wrap"></div></div></section>
     <section id="settings" class="section">
       <div class="panel">
         <h3>Pengaturan Koneksi Supabase</h3>
@@ -242,6 +244,24 @@
     </div>
   </form>
 </dialog>
+<dialog id="purchaseDialog"><form class="modal" id="purchaseForm"><h3>Tambah Pembelian</h3>
+<div class="form-grid">
+<label>Nomor Pembelian<input name="nomor" class="input" readonly required></label>
+<label>Tanggal<input name="tanggal" class="input" type="date" required onchange="updatePurchasePayment()"></label>
+<label>Supplier<select name="supplier" class="input" required></select></label>
+<label>Gudang Penerima<select name="gudang" class="input" required></select></label>
+<label>Pembayaran<select name="metode" class="input" onchange="updatePurchasePayment()"><option>Tempo</option><option>Transfer</option><option>Tunai</option></select></label>
+<label>Jatuh Tempo<input name="tempo" class="input" type="date"></label>
+<label class="full">Catatan<input name="catatan" class="input" maxlength="2000"></label>
+</div>
+<div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga Beli</th><th>Subtotal</th><th></th></tr></thead><tbody id="purchaseLines"></tbody></table></div>
+<button type="button" class="btn secondary" onclick="addPurchaseLine()">+ Baris Barang</button>
+<p style="margin-top:14px">Total: <strong id="purchaseTotal"></strong></p>
+<p class="small" style="margin-top:10px">Pastikan barang sudah diterima. Transaksi ini langsung menambah stok dan mencatat pembayaran atau utang supplier.</p>
+<p id="purchaseError" role="alert" class="login-error"></p>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('purchaseDialog').close()">Batal</button><button id="savePurchase" class="btn" type="submit">Simpan &amp; Terima Barang</button></div>
+</form></dialog>
+<dialog id="purchaseDetail"><div class="modal"><h3>Detail Pembelian</h3><div id="purchaseDetailContent" class="table-wrap"></div><div class="modal-actions"><button class="btn secondary" onclick="document.getElementById('purchaseDetail').close()">Tutup</button></div></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.min.js"
   integrity="sha384-4bKASEcnXfYfA/rrhF9qD3mYowkb5k4Xbzbrf3ccqgZrplKUrwnA2Q/L5xcdZFAp"
   crossorigin="anonymous"></script>
@@ -355,6 +375,11 @@ document.querySelectorAll(".menu button").forEach((button) => {
     button.classList.add("active");
     target.classList.add("active");
 
+    if (page === "barang") loadBarang();
+    if (page === "purchases") loadPurchases();
+    if (page === "stocks") loadStocks();
+    const subtitle = document.getElementById("pageSubtitle");
+    subtitle.textContent = page === "purchases" ? "Pembelian dan penerimaan barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = button.textContent;
 
@@ -445,9 +470,13 @@ function esc(value) {
     .replaceAll("'", "&#039;");
 }
 function openBarang() {
+  const form = document.getElementById("barangForm");
+  form.reset(); delete form.dataset.editId;
+  form.querySelector("h3").textContent = "Tambah Barang";
   document.getElementById("barangDialog").showModal();
 }async function saveBarang() {
   const form = document.getElementById("barangForm");
+  if (!form.reportValidity()) return;
   const f = Object.fromEntries(new FormData(form).entries());
 const editId = form.dataset.editId;
   const data = {
@@ -599,6 +628,8 @@ async function saveCustomer() {
       return rows.length;
     };
 
+    document.getElementById("countBarang").textContent = await getCount("master_barang");
+    document.getElementById("countGudang").textContent = await getCount("warehouses");
     document.getElementById("countCustomer").textContent =
       await getCount("customers");
 
@@ -633,7 +664,9 @@ async function loadBarang() {
     }
 
     const rows = await r.json();
-
+    const stocks = await api("stocks?select=barang_id,stok");
+    const totals = {};
+    stocks.forEach(x => totals[x.barang_id] = (totals[x.barang_id] || 0) + Number(x.stok || 0));
     table.innerHTML = rows.length
       ? `<table>
           <thead>
@@ -649,7 +682,7 @@ async function loadBarang() {
               <tr>
                 <td>${esc(x.kode_barang || "")}</td>
                 <td>${esc(x.nama_barang || "")}</td>
-                <td>${esc(x.stok || 0)}</td>
+                <td>${esc(totals[x.id] || 0)}</td>
                <td><button class="btn" onclick="editBarang('${x.id}')">Edit</button> <button class="btn" onclick="hapusBarang('${x.id}')">Hapus</button></td>              </tr>
             `).join("")}
           </tbody>
@@ -712,6 +745,7 @@ showMessage("Barang gagal dihapus: " + e.message);
     form.harga_beli.value = barang.harga_beli || 0;
 
     form.dataset.editId = id;
+    form.querySelector("h3").textContent = "Edit Barang";
 
     document.getElementById("barangDialog").showModal();
 
@@ -899,6 +933,103 @@ async function editCustomer(id) {
     table.innerHTML =
       "Data supplier belum dapat dibaca: " + esc(e.message);
   }
+}
+
+let purchaseMaster = { barang: [], suppliers: [], warehouses: [] };
+const rupiah = value => new Intl.NumberFormat('id-ID', {style:'currency',currency:'IDR'}).format(Number(value || 0));
+const todayJakarta = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+async function api(path, body) {
+  if (!authSession?.user) throw new Error('Silakan masuk terlebih dahulu.');
+  const client = getAuthClient();
+  const session = await client.auth.getSession();
+  if (session.error || !session.data.session) throw new Error('Sesi berakhir. Silakan masuk kembali.');
+  authSession = session.data.session;
+  const response = await fetch(cfg.url + '/rest/v1/' + path, {
+    method: body === undefined ? 'GET' : 'POST', headers: headers(),
+    ...(body === undefined ? {} : {body:JSON.stringify(body)})
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Database belum dapat diakses.');
+  return data;
+}
+async function loadPurchases() {
+  const target = document.getElementById('purchaseTable');
+  target.textContent = 'Memuat pembelian…';
+  try {
+    const rows = await api('purchases?select=*,suppliers(nama_supplier),warehouses(nama_gudang)&order=id.desc&limit=100');
+    target.innerHTML = rows.length ? `<table><thead><tr><th>Nomor</th><th>Tanggal</th><th>Supplier</th><th>Gudang</th><th>Total</th><th>Pembayaran</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_pembelian)}</td><td>${esc(x.tanggal)}</td><td>${esc(x.suppliers?.nama_supplier)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(rupiah(x.total))}</td><td>${esc(x.metode_pembayaran)}</td><td>${esc(x.status)}</td><td><button class="btn secondary purchase-detail" data-id="${esc(x.id)}">Detail</button></td></tr>`).join('')}</tbody></table><p class="small">Menampilkan maksimal 100 pembelian terbaru.</p>` : 'Belum ada transaksi pembelian.';
+    target.querySelectorAll('.purchase-detail').forEach(button=>button.onclick=()=>showPurchaseDetail(button.dataset.id));
+  } catch(e) { target.textContent = 'Pembelian belum dapat dibaca: '+e.message; }
+}
+async function showPurchaseDetail(id) {
+  try {
+    const rows = await api('purchase_items?select=*,master_barang(kode_barang,nama_barang)&purchase_id=eq.'+encodeURIComponent(id));
+    document.getElementById('purchaseDetailContent').innerHTML=`<table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.qty)}</td><td>${esc(rupiah(x.harga))}</td><td>${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('purchaseDetail').showModal();
+  } catch(e) { showMessage(e.message); }
+}
+async function openPurchase() {
+  const button = document.getElementById('newPurchase'); button.disabled=true;
+  try {
+    const [barang,suppliers,warehouses] = await Promise.all([
+      api('master_barang?select=id,kode_barang,nama_barang,harga_beli&status_aktif=eq.true&order=nama_barang'),
+      api('suppliers?select=id,nama_supplier&status_aktif=eq.true&order=nama_supplier'),
+      api('warehouses?select=id,nama_gudang&status_aktif=eq.true&order=nama_gudang')
+    ]);
+    purchaseMaster={barang,suppliers,warehouses};
+    if (!barang.length || !suppliers.length || !warehouses.length) throw new Error('Lengkapi barang, supplier, dan gudang aktif terlebih dahulu.');
+    const form=document.getElementById('purchaseForm'); form.reset();
+    form.elements.nomor.value='PB-'+todayJakarta().replaceAll('-','')+'-'+crypto.randomUUID().slice(0,8).toUpperCase();
+    form.elements.tanggal.value=todayJakarta();
+    form.elements.supplier.innerHTML='<option value="">Pilih supplier</option>'+suppliers.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_supplier)}</option>`).join('');
+    form.elements.gudang.innerHTML='<option value="">Pilih gudang</option>'+warehouses.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_gudang)}</option>`).join('');
+    document.getElementById('purchaseLines').replaceChildren(); addPurchaseLine();
+    updatePurchasePayment(); document.getElementById('purchaseError').textContent='';
+    document.getElementById('purchaseDialog').showModal();
+  } catch(e) { showMessage(e.message); } finally { button.disabled=false; }
+}
+function addPurchaseLine() {
+  const row=document.createElement('tr'); row.className='purchase-line';
+  row.innerHTML=`<td><select class="input line-barang" required><option value="">Pilih barang</option>${purchaseMaster.barang.map(x=>`<option value="${esc(x.id)}">${esc(x.kode_barang)} — ${esc(x.nama_barang)}</option>`).join('')}</select></td><td><input aria-label="Jumlah" class="input line-qty" type="number" min="0.01" step="0.01" max="1000000000" value="1" required></td><td><input aria-label="Harga beli" class="input line-harga" type="number" min="0" max="1000000000000" step="0.01" value="0" required></td><td class="line-total"></td><td><button type="button" class="btn danger">Hapus</button></td>`;
+  row.querySelector('.line-barang').onchange=event=>{row.querySelector('.line-harga').value=purchaseMaster.barang.find(x=>String(x.id)===event.target.value)?.harga_beli || 0;updatePurchaseTotal();};
+  row.querySelectorAll('input').forEach(input=>input.oninput=updatePurchaseTotal);
+  row.querySelector('button').onclick=()=>{row.remove();updatePurchaseTotal();};
+  document.getElementById('purchaseLines').append(row); updatePurchaseTotal();
+}
+function collectPurchaseLines() {
+  return [...document.querySelectorAll('.purchase-line')].map(row=>({barang_id:row.querySelector('.line-barang').value,qty:Number(row.querySelector('.line-qty').value),harga:Number(row.querySelector('.line-harga').value)}));
+}
+function updatePurchaseTotal() {
+  let total=0;
+  document.querySelectorAll('.purchase-line').forEach(row=>{const sub=Math.round(Number(row.querySelector('.line-qty').value)*Number(row.querySelector('.line-harga').value)*100)/100; total+=sub; row.querySelector('.line-total').textContent=rupiah(sub);});
+  document.getElementById('purchaseTotal').textContent=rupiah(total);
+}
+function updatePurchasePayment() {
+  const form=document.getElementById('purchaseForm'); const tempo=form.elements.metode.value==='Tempo';
+  form.elements.tempo.required=tempo; form.elements.tempo.disabled=!tempo;
+  form.elements.tempo.min=form.elements.tanggal.value;
+}
+document.getElementById('purchaseForm').addEventListener('submit',async event=>{
+  event.preventDefault(); const form=event.currentTarget;
+  if (!form.reportValidity()) return;
+  const items=collectPurchaseLines(); const errorBox=document.getElementById('purchaseError');
+  if (!items.length || items.some(x=>!x.barang_id || !Number.isFinite(x.qty) || x.qty<=0 || !Number.isFinite(x.harga) || x.harga<0)) {errorBox.textContent='Isi minimal satu barang dengan jumlah dan harga yang valid.';return;}
+  if (form.elements.metode.value==='Tempo' && form.elements.tempo.value<form.elements.tanggal.value) {errorBox.textContent='Jatuh tempo harus setelah atau sama dengan tanggal pembelian.';return;}
+  const button=document.getElementById('savePurchase'); if(button.disabled) return;
+  button.disabled=true; button.textContent='Menyimpan…'; errorBox.textContent='';
+  try {
+    await api('rpc/hanyojo_receive_purchase',{p_nomor:form.elements.nomor.value,p_supplier:form.elements.supplier.value,p_gudang:form.elements.gudang.value,p_tanggal:form.elements.tanggal.value,p_metode:form.elements.metode.value,p_tempo:form.elements.metode.value==='Tempo'?form.elements.tempo.value:null,p_catatan:form.elements.catatan.value.trim(),p_items:items});
+    document.getElementById('purchaseDialog').close();
+    showMessage('Pembelian berhasil disimpan. Stok gudang bertambah.');
+    await loadPurchases(); await loadBarang();
+  } catch(e) {errorBox.textContent='Belum dapat menyimpan: '+e.message+' Jika koneksi terputus, periksa daftar pembelian sebelum mengulang.';}
+  finally {button.disabled=false;button.textContent='Simpan & Terima Barang';}
+});
+async function loadStocks() {
+  const target=document.getElementById('stockTable');
+  try { const rows=await api('stocks?select=*,master_barang(kode_barang,nama_barang),warehouses(nama_gudang)&order=id.desc');
+    target.innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Barang</th><th>Gudang</th><th>Stok</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)}</td><td>${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.stok)}</td></tr>`).join('')}</tbody></table>`:'Belum ada stok gudang.';
+  } catch(e) {target.textContent=e.message;}
 }
 
 initAuth();
