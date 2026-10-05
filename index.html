@@ -137,6 +137,7 @@
   </div>
 </section>
 <section id="purchases" class="section"><div class="panel"><div class="toolbar"><h3>Pembelian</h3><button id="newPurchase" class="btn" onclick="openPurchase()">+ Tambah Pembelian</button><button class="btn secondary" onclick="loadPurchases()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diterima. Penyimpanan akan menambah stok gudang.</p><div id="purchaseTable" class="table-wrap"></div></div></section>
+<section id="sales" class="section"><div class="panel"><div class="toolbar"><h3>Penjualan</h3><button id="newSale" class="btn" onclick="openSale()">+ Tambah Penjualan</button><button class="btn secondary" onclick="loadSales()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diserahkan kepada customer. Penyimpanan langsung mengurangi stok gudang.</p><div id="saleTable" class="table-wrap"></div></div></section>
 <section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><div id="stockTable" class="table-wrap"></div></div></section>
     <section id="settings" class="section">
       <div class="panel">
@@ -162,7 +163,7 @@
       <label>Satuan<input name="satuan" class="input" value="PCS"></label>
       <label>Harga Beli<input name="harga_beli" type="number" min="0" step="0.01" class="input" value="0"></label>
     </div>
-    <div class="modal-actions"><button value="cancel" class="btn secondary">Batal</button><button type="button" class="btn" onclick="saveBarang()">Simpan</button></div>
+    <div class="modal-actions"><button value="cancel" formnovalidate class="btn secondary">Batal</button><button type="button" class="btn" onclick="saveBarang()">Simpan</button></div>
   </form>
 </dialog>
 <dialog id="customerDialog">
@@ -187,7 +188,7 @@
     </div>
 
     <div class="modal-actions">
-      <button value="cancel" class="btn secondary">Batal</button>
+      <button value="cancel" formnovalidate class="btn secondary">Batal</button>
       <button type="button" class="btn" onclick="saveCustomer()">Simpan</button>
     </div>
   </form>
@@ -239,7 +240,7 @@
     </div>
 
     <div class="modal-actions">
-      <button value="cancel" class="btn secondary">Batal</button>
+      <button value="cancel" formnovalidate class="btn secondary">Batal</button>
       <button type="button" class="btn" onclick="saveSupplier()">Simpan</button>
     </div>
   </form>
@@ -262,6 +263,25 @@
 <div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('purchaseDialog').close()">Batal</button><button id="savePurchase" class="btn" type="submit">Simpan &amp; Terima Barang</button></div>
 </form></dialog>
 <dialog id="purchaseDetail"><div class="modal"><h3>Detail Pembelian</h3><div id="purchaseDetailContent" class="table-wrap"></div><div class="modal-actions"><button class="btn secondary" onclick="document.getElementById('purchaseDetail').close()">Tutup</button></div></div></dialog>
+<dialog id="saleDialog"><form class="modal" id="saleForm"><h3>Tambah Penjualan</h3>
+<div class="form-grid">
+<label>Nomor Penjualan<input name="nomor" class="input" readonly required></label>
+<label>Tanggal<input name="tanggal" class="input" type="date" required onchange="updateSalePayment()"></label>
+<label>Customer<select name="customer" class="input" required></select></label>
+<label>Gudang Pengirim<select name="gudang" class="input" required onchange="updateSaleStock()"></select></label>
+<label>Pembayaran<select name="metode" class="input" onchange="updateSalePayment()"><option>Tempo</option><option>Transfer</option><option>Tunai</option></select></label>
+<label id="saleDueLabel">Jatuh Tempo<input name="tempo" class="input" type="date"></label>
+<label id="saleAccountLabel" class="full">Rekening Penerima<select name="account" class="input"></select></label>
+<label class="full">Catatan<input name="catatan" class="input" maxlength="2000"></label>
+</div>
+<div class="table-wrap" style="margin-top:16px"><table><thead><tr><th>Barang</th><th>Stok Gudang</th><th>Jumlah</th><th>Harga Jual</th><th>Subtotal</th><th></th></tr></thead><tbody id="saleLines"></tbody></table></div>
+<button type="button" class="btn secondary" onclick="addSaleLine()">+ Baris Barang</button>
+<p style="margin-top:14px">Total: <strong id="saleTotal"></strong></p>
+<p class="small" style="margin-top:10px">Pastikan barang sudah diserahkan. Pembayaran tempo mencatat piutang; tunai atau transfer mencatat uang masuk. Total belum mencakup diskon dan pajak.</p>
+<p id="saleError" role="alert" class="login-error"></p>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('saleDialog').close()">Batal</button><button id="saveSale" class="btn" type="submit">Simpan &amp; Keluarkan Barang</button></div>
+</form></dialog>
+<dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.min.js"
   integrity="sha384-4bKASEcnXfYfA/rrhF9qD3mYowkb5k4Xbzbrf3ccqgZrplKUrwnA2Q/L5xcdZFAp"
   crossorigin="anonymous"></script>
@@ -296,6 +316,7 @@ function setAuthView(session) {
     document.getElementById("currentUserRole").textContent =
       role.charAt(0).toUpperCase() + role.slice(1) + " — PT HANYOJO SUN JAVA";
     loadDashboard();
+    loadLatestSales();
   }
 }
 
@@ -377,9 +398,10 @@ document.querySelectorAll(".menu button").forEach((button) => {
 
     if (page === "barang") loadBarang();
     if (page === "purchases") loadPurchases();
+    if (page === "sales") loadSales();
     if (page === "stocks") loadStocks();
     const subtitle = document.getElementById("pageSubtitle");
-    subtitle.textContent = page === "purchases" ? "Pembelian dan penerimaan barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
+    subtitle.textContent = page === "purchases" ? "Pembelian dan penerimaan barang" : page === "sales" ? "Penjualan dan pengeluaran barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = button.textContent;
 
@@ -392,6 +414,7 @@ document.querySelectorAll(".menu button").forEach((button) => {
     }
 if (page === "dashboard" && typeof loadDashboard === "function") {
   loadDashboard();
+  loadLatestSales();
 }
     
   });
@@ -984,6 +1007,7 @@ async function openPurchase() {
     form.elements.supplier.innerHTML='<option value="">Pilih supplier</option>'+suppliers.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_supplier)}</option>`).join('');
     form.elements.gudang.innerHTML='<option value="">Pilih gudang</option>'+warehouses.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_gudang)}</option>`).join('');
     document.getElementById('purchaseLines').replaceChildren(); addPurchaseLine();
+    form.elements.tempo.value=todayJakarta();
     updatePurchasePayment(); document.getElementById('purchaseError').textContent='';
     document.getElementById('purchaseDialog').showModal();
   } catch(e) { showMessage(e.message); } finally { button.disabled=false; }
@@ -1031,6 +1055,97 @@ async function loadStocks() {
     target.innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Barang</th><th>Gudang</th><th>Stok</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)}</td><td>${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.stok)}</td></tr>`).join('')}</tbody></table>`:'Belum ada stok gudang.';
   } catch(e) {target.textContent=e.message;}
 }
+
+let saleMaster = {barang:[],customers:[],warehouses:[],accounts:[],stocks:[]};
+let salePending=false;
+async function loadSales() {
+ const target=document.getElementById('saleTable'); target.textContent='Memuat penjualan…';
+ try {
+  const rows=await api('sales?select=*,customers(nama_customer),warehouses(nama_gudang)&order=id.desc&limit=100');
+  target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Tanggal</th><th>Customer</th><th>Gudang</th><th>Total</th><th>Pembayaran</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.tanggal)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(rupiah(x.grand_total))}</td><td>${esc(x.metode_pembayaran)}</td><td>${esc(x.status)}</td><td><button class="btn secondary sale-detail" data-id="${esc(x.id)}">Detail</button></td></tr>`).join('')}</tbody></table><p class="small">Menampilkan maksimal 100 penjualan terbaru.</p>`:'Belum ada transaksi penjualan.';
+  target.querySelectorAll('.sale-detail').forEach(b=>b.onclick=()=>showSaleDetail(b.dataset.id));
+ } catch(e) {target.textContent='Penjualan belum dapat dibaca: '+e.message;}
+}
+async function loadLatestSales() {
+ const target=document.getElementById('latestSales');
+ try {
+  const rows=await api('sales?select=nomor_penjualan,tanggal,grand_total,customers(nama_customer)&order=id.desc&limit=5');
+  target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Customer</th><th>Total</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(rupiah(x.grand_total))}</td></tr>`).join('')}</tbody></table>`:'Belum ada transaksi penjualan.';
+ } catch(e) {target.textContent='Penjualan belum dapat dibaca: '+e.message;}
+}
+async function showSaleDetail(id) {
+ try {
+  const [rows,sales,receivables]=await Promise.all([
+   api('sales_items?select=*,master_barang(kode_barang,nama_barang)&sales_id=eq.'+encodeURIComponent(id)),
+   api('sales?select=nomor_penjualan,metode_pembayaran,jatuh_tempo,catatan,cash_accounts(name)&id=eq.'+encodeURIComponent(id)),
+   api('receivables?select=total,paid,due_date,status&sales_id=eq.'+encodeURIComponent(id))
+  ]);
+  const sale=sales[0],r=receivables[0];
+  if(!sale) throw new Error('Penjualan tidak ditemukan.');
+  document.getElementById('saleDetailContent').innerHTML=`<p>${esc(sale.nomor_penjualan)} · ${esc(sale.metode_pembayaran)}</p><p class="small">${esc(sale.catatan)}</p><table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.qty)}</td><td>${esc(rupiah(x.harga))}</td><td>${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table>${r?`<p>Sisa piutang: <strong>${esc(rupiah(Number(r.total)-Number(r.paid)))}</strong> · Jatuh tempo: ${esc(r.due_date)} · ${esc(r.status)}</p>`:sale.cash_accounts?`<p>Rekening penerima: ${esc(sale.cash_accounts.name)}</p>`:''}`;
+  document.getElementById('saleDetail').showModal();
+ } catch(e) {showMessage(e.message);}
+}
+async function openSale() {
+ const button=document.getElementById('newSale');button.disabled=true;
+ try {
+  const [barang,customers,warehouses,accounts,stocks]=await Promise.all([
+   api('master_barang?select=id,kode_barang,nama_barang,harga_jual&status_aktif=eq.true&order=nama_barang'),
+   api('customers?select=id,nama_customer,jatuh_tempo_hari&status_aktif=eq.true&order=nama_customer'),
+   api('warehouses?select=id,nama_gudang&status_aktif=eq.true&order=nama_gudang'),
+   api('cash_accounts?select=id,name,account_type&active=eq.true&order=name'),
+   api('stocks?select=barang_id,gudang_id,stok')
+  ]);
+  if(!barang.length||!customers.length||!warehouses.length)throw new Error('Lengkapi barang, customer, dan gudang aktif terlebih dahulu.');
+  saleMaster={barang,customers,warehouses,accounts,stocks};
+  const form=document.getElementById('saleForm');form.reset();
+  form.elements.nomor.value='PJ-'+todayJakarta().replaceAll('-','')+'-'+crypto.randomUUID().slice(0,8).toUpperCase();
+  form.elements.tanggal.value=todayJakarta();form.elements.tempo.value=todayJakarta();
+  form.elements.customer.innerHTML='<option value="">Pilih customer</option>'+customers.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_customer)}</option>`).join('');
+  form.elements.gudang.innerHTML='<option value="">Pilih gudang</option>'+warehouses.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_gudang)}</option>`).join('');
+  document.getElementById('saleLines').replaceChildren();addSaleLine();updateSalePayment();
+  document.getElementById('saleError').textContent='';document.getElementById('saleDialog').showModal();
+ }catch(e){showMessage(e.message);}finally{button.disabled=false;}
+}
+function addSaleLine() {
+ const rows=document.querySelectorAll('.sale-line');if(rows.length>=100){document.getElementById('saleError').textContent='Maksimal 100 baris barang.';return;}
+ const row=document.createElement('tr');row.className='sale-line';
+ row.innerHTML=`<td><select class="input sale-barang" required><option value="">Pilih barang</option>${saleMaster.barang.map(x=>`<option value="${esc(x.id)}">${esc(x.kode_barang)} — ${esc(x.nama_barang)}</option>`).join('')}</select></td><td class="sale-stock">—</td><td><input aria-label="Jumlah jual" class="input sale-qty" type="number" min="0.01" max="1000000000" step="0.01" value="1" required></td><td><input aria-label="Harga jual" class="input sale-harga" type="number" min="0" max="1000000000000" step="0.01" value="0" required></td><td class="sale-subtotal"></td><td><button type="button" class="btn danger">Hapus</button></td>`;
+ row.querySelector('.sale-barang').onchange=e=>{row.querySelector('.sale-harga').value=saleMaster.barang.find(x=>String(x.id)===e.target.value)?.harga_jual||0;updateSaleStock();updateSaleTotal();};
+ row.querySelectorAll('input').forEach(i=>i.oninput=updateSaleTotal);
+ row.querySelector('button').onclick=()=>{row.remove();updateSaleTotal();};
+ document.getElementById('saleLines').append(row);updateSaleStock();updateSaleTotal();
+}
+function collectSaleLines(){return [...document.querySelectorAll('.sale-line')].map(row=>({barang_id:row.querySelector('.sale-barang').value,qty:Number(row.querySelector('.sale-qty').value),harga:Number(row.querySelector('.sale-harga').value)}));}
+function stockForSale(id){const gudang=document.getElementById('saleForm').elements.gudang.value;return Number(saleMaster.stocks.find(x=>String(x.barang_id)===String(id)&&String(x.gudang_id)===gudang)?.stok||0);}
+function updateSaleStock(){const gudang=document.getElementById('saleForm').elements.gudang.value;document.querySelectorAll('.sale-line').forEach(row=>{const id=row.querySelector('.sale-barang').value;row.querySelector('.sale-stock').textContent=id&&gudang?stockForSale(id):'—';});}
+function updateSaleTotal(){let total=0;document.querySelectorAll('.sale-line').forEach(row=>{const sub=Math.round(Number(row.querySelector('.sale-qty').value)*Number(row.querySelector('.sale-harga').value)*100)/100;total+=sub;row.querySelector('.sale-subtotal').textContent=rupiah(sub);});document.getElementById('saleTotal').textContent=rupiah(total);}
+function updateSalePayment(){
+ const form=document.getElementById('saleForm'),tempo=form.elements.metode.value==='Tempo',type=form.elements.metode.value==='Tunai'?'Kas':'Bank';
+ form.elements.tempo.required=tempo;form.elements.tempo.disabled=!tempo;form.elements.tempo.min=form.elements.tanggal.value;
+ document.getElementById('saleDueLabel').hidden=!tempo;document.getElementById('saleAccountLabel').hidden=tempo;
+ const previous=form.elements.account.value;
+ form.elements.account.innerHTML='<option value="">Pilih rekening penerima</option>'+saleMaster.accounts.filter(x=>x.account_type===type).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+ if([...form.elements.account.options].some(x=>x.value===previous))form.elements.account.value=previous;
+ form.elements.account.required=!tempo;form.elements.account.disabled=tempo;
+}
+document.getElementById('saleDialog').addEventListener('cancel',e=>{if(salePending)e.preventDefault();});
+document.getElementById('saleForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(salePending)return;const form=e.currentTarget,error=document.getElementById('saleError');error.textContent='';
+ if(!form.reportValidity())return;
+ const items=collectSaleLines();
+ if(!items.length||items.some(x=>!x.barang_id||!Number.isFinite(x.qty)||x.qty<=0||!Number.isFinite(x.harga)||x.harga<0)){error.textContent='Isi minimal satu barang dengan jumlah dan harga yang valid.';return;}
+ const totals=new Map();items.forEach(x=>totals.set(x.barang_id,(totals.get(x.barang_id)||0)+x.qty));
+ for(const [id,qty]of totals)if(qty>stockForSale(id)+1e-9){error.textContent='Jumlah '+(saleMaster.barang.find(x=>String(x.id)===id)?.nama_barang||'barang')+' melebihi stok gudang yang dipilih.';return;}
+ const payload={p_nomor:form.elements.nomor.value,p_customer:form.elements.customer.value,p_gudang:form.elements.gudang.value,p_tanggal:form.elements.tanggal.value,p_metode:form.elements.metode.value,p_tempo:form.elements.metode.value==='Tempo'?form.elements.tempo.value:null,p_catatan:form.elements.catatan.value.trim(),p_account:form.elements.metode.value==='Tempo'?null:form.elements.account.value,p_items:items};
+ const controls=[...form.querySelectorAll('input,select,button')].map(el=>[el,el.disabled]);salePending=true;controls.forEach(([el])=>el.disabled=true);document.getElementById('saveSale').textContent='Menyimpan…';
+ try{
+  await api('rpc/hanyojo_post_sale',payload);
+  document.getElementById('saleDialog').close();showMessage('Penjualan berhasil disimpan. Stok gudang berkurang.');
+  await Promise.allSettled([loadSales(),loadBarang(),loadStocks(),loadLatestSales()]);
+ }catch(err){error.textContent='Belum dapat menyimpan: '+err.message+' Jika koneksi terputus, periksa daftar penjualan sebelum mengulang.';}
+ finally{salePending=false;controls.forEach(([el,disabled])=>el.disabled=disabled);document.getElementById('saveSale').textContent='Simpan & Keluarkan Barang';}
+});
 
 initAuth();
 </script>
