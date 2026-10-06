@@ -138,6 +138,10 @@
     <div id="supplierTable" class="table-wrap">Belum ada data supplier.</div>
   </div>
 </section>
+<section id="warehouses" class="section"><div class="panel">
+<div class="toolbar"><h3>Daftar Gudang</h3><button class="btn" onclick="openWarehouse()">+ Tambah Gudang</button><button class="btn secondary" onclick="loadWarehouses()">Muat Ulang</button></div>
+<p class="small" style="margin-bottom:16px">Kelola lokasi penyimpanan barang. Gudang aktif tersedia pada formulir pembelian dan penjualan.</p>
+<div id="warehouseTable" class="table-wrap"></div></div></section>
 <section id="purchases" class="section"><div class="panel"><div class="toolbar"><h3>Pembelian</h3><button id="newPurchase" class="btn" onclick="openPurchase()">+ Tambah Pembelian</button><button class="btn secondary" onclick="loadPurchases()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diterima. Penyimpanan akan menambah stok gudang.</p><div id="purchaseTable" class="table-wrap"></div></div></section>
 <section id="sales" class="section"><div class="panel"><div class="toolbar"><h3>Penjualan</h3><button id="newSale" class="btn" onclick="openSale()">+ Tambah Penjualan</button><button class="btn secondary" onclick="loadSales()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diserahkan kepada customer. Penyimpanan langsung mengurangi stok gudang.</p><div id="saleTable" class="table-wrap"></div></div></section>
 <section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><div id="stockTable" class="table-wrap"></div></div></section>
@@ -278,6 +282,18 @@
     </div>
   </form>
 </dialog>
+<dialog id="warehouseDialog"><form class="modal" id="warehouseForm" onsubmit="event.preventDefault(); saveWarehouse()">
+<h3 id="warehouseTitle">Tambah Gudang</h3><div class="form-grid">
+<label>Kode Gudang<input name="kode_gudang" class="input" maxlength="50" required placeholder="Contoh: GDG-001"></label>
+<label>Nama Gudang<input name="nama_gudang" class="input" maxlength="150" required placeholder="Contoh: Gudang Blizanac"></label>
+<label>Alamat<input name="alamat" class="input" maxlength="500"></label>
+<label>Penanggung Jawab<input name="penanggung_jawab" class="input" maxlength="150"></label>
+<label>No. HP<input name="no_hp" class="input" type="tel" maxlength="30"></label>
+<label>Status<select name="status_aktif" class="input"><option value="true">Aktif</option><option value="false">Nonaktif</option></select></label>
+</div><p class="small" style="margin-top:12px">Gudang nonaktif tetap tersimpan beserta riwayat dan stoknya, tetapi tidak dapat dipilih untuk transaksi baru.</p>
+<p id="warehouseError" role="alert" style="color:#b91c1c;margin-top:12px"></p>
+<div class="modal-actions"><button type="button" id="warehouseCancel" class="btn secondary" onclick="document.getElementById('warehouseDialog').close()">Batal</button><button type="submit" id="warehouseSave" class="btn">Simpan</button></div>
+</form></dialog>
 <dialog id="purchaseDialog"><form class="modal" id="purchaseForm"><h3>Tambah Pembelian</h3>
 <div class="form-grid">
 <label>Nomor Pembelian<input name="nomor" class="input" readonly required></label>
@@ -434,9 +450,10 @@ document.querySelectorAll(".menu button").forEach((button) => {
     if (page === "sales") loadSales();
     if (page === "payments") loadFinance();
     if (page === "stocks") loadStocks();
+    if (page === "warehouses") loadWarehouses();
     if (page === "reports") openReports();
     const subtitle = document.getElementById("pageSubtitle");
-    subtitle.textContent = page === "reports" ? "Penjualan, pembelian, dan kas harian" : page === "payments" ? "Saldo, piutang, utang, dan pembayaran" : page === "purchases" ? "Pembelian dan penerimaan barang" : page === "sales" ? "Penjualan dan pengeluaran barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
+    subtitle.textContent = page === "warehouses" ? "Lokasi penyimpanan dan penanggung jawab" : page === "reports" ? "Penjualan, pembelian, dan kas harian" : page === "payments" ? "Saldo, piutang, utang, dan pembayaran" : page === "purchases" ? "Pembelian dan penerimaan barang" : page === "sales" ? "Penjualan dan pengeluaran barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = button.textContent;
 
@@ -992,6 +1009,107 @@ async function editCustomer(id) {
       "Data supplier belum dapat dibaca: " + esc(e.message);
   }
 }
+
+
+// Warehouse maintenance preserves existing warehouse IDs and stock history.
+const warehouseFields = ['kode_gudang','nama_gudang','alamat','penanggung_jawab','no_hp','status_aktif'];
+let warehouseEditing = null;
+let warehouseSaving = false;
+let warehouseLoadGeneration = 0;
+async function loadWarehouses() {
+  const target = document.getElementById('warehouseTable');
+  const generation = ++warehouseLoadGeneration;
+  target.textContent = 'Memuat gudang…';
+  try {
+    const rows = [];
+    let cursor = '0';
+    for (;;) {
+      const batch = await api('warehouses?select=id,'+warehouseFields.join(',')+'&id=gt.'+encodeURIComponent(cursor)+'&order=id.asc&limit=500');
+      if (!batch.length) break;
+      rows.push(...batch);
+      const next = String(batch[batch.length-1].id);
+      if (next === cursor) throw new Error('Daftar gudang belum dapat dimuat lengkap.');
+      cursor = next;
+    }
+    if (generation !== warehouseLoadGeneration) return;
+    target.innerHTML = rows.length ? `<table><thead><tr><th>Kode</th><th>Nama Gudang</th><th>Alamat</th><th>Penanggung Jawab</th><th>No. HP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.kode_gudang)}</td><td>${esc(x.nama_gudang)}</td><td>${esc(x.alamat||'—')}</td><td>${esc(x.penanggung_jawab||'—')}</td><td>${esc(x.no_hp||'—')}</td><td>${x.status_aktif===true?'Aktif':'Nonaktif'}</td><td><button class="btn secondary warehouse-edit" data-id="${esc(x.id)}">Edit</button></td></tr>`).join('')}</tbody></table>` : 'Belum ada gudang. Klik + Tambah Gudang untuk membuat lokasi penyimpanan.';
+    target.querySelectorAll('.warehouse-edit').forEach(button=>button.addEventListener('click',()=>openWarehouse(button.dataset.id)));
+  } catch (e) {
+    if (generation === warehouseLoadGeneration) target.textContent = 'Gudang belum dapat dimuat: '+e.message;
+  }
+}
+async function openWarehouse(id) {
+  if (warehouseSaving) return;
+  const form = document.getElementById('warehouseForm');
+  try {
+    warehouseEditing = null;
+    form.reset();
+    document.getElementById('warehouseError').textContent = '';
+    if (id !== undefined) {
+      if (!/^\d+$/.test(String(id))) throw new Error('Gudang tidak valid.');
+      const rows = await api('warehouses?select=id,'+warehouseFields.join(',')+'&id=eq.'+encodeURIComponent(id));
+      if (rows.length !== 1) throw new Error('Gudang tidak ditemukan. Muat ulang daftar gudang.');
+      warehouseEditing = rows[0];
+      warehouseFields.forEach(key=>form.elements[key].value = key==='status_aktif' ? String(rows[0][key]===true) : (rows[0][key]||''));
+    }
+    document.getElementById('warehouseTitle').textContent = warehouseEditing ? 'Edit Gudang' : 'Tambah Gudang';
+    document.getElementById('warehouseDialog').showModal();
+    form.elements.kode_gudang.focus();
+  } catch (e) { showMessage(e.message); }
+}
+async function writeWarehouse(path, payload, method) {
+  if (!authSession?.user) throw new Error('Silakan masuk terlebih dahulu.');
+  const session = await getAuthClient().auth.getSession();
+  if (session.error || !session.data.session) throw new Error('Sesi berakhir. Silakan masuk kembali.');
+  authSession = session.data.session;
+  const response = await fetch(cfg.url+'/rest/v1/'+path, {
+    method, headers:headers({'Prefer':'return=representation'}), body:JSON.stringify(payload)
+  });
+  const raw = await response.text();
+  const data = raw ? JSON.parse(raw) : [];
+  if (!response.ok) {
+    if (data.code === '23505') throw new Error('Kode gudang sudah digunakan. Gunakan kode lain.');
+    throw new Error(data.message || 'Gudang belum dapat disimpan.');
+  }
+  if (!Array.isArray(data) || data.length !== 1) throw new Error('Perubahan belum terkonfirmasi. Muat ulang daftar gudang sebelum mencoba kembali.');
+  return data[0];
+}
+async function saveWarehouse() {
+  if (warehouseSaving) return;
+  const form = document.getElementById('warehouseForm');
+  const error = document.getElementById('warehouseError');
+  error.textContent = '';
+  if (!form.reportValidity()) return;
+  const payload = {};
+  warehouseFields.forEach(key=>payload[key] = key==='status_aktif' ? form.elements[key].value==='true' : form.elements[key].value.trim());
+  if (!payload.kode_gudang || !payload.nama_gudang) { error.textContent='Kode dan nama gudang wajib diisi.'; return; }
+  const original = warehouseEditing;
+  let path = 'warehouses';
+  if (original) {
+    // Compare original values so another user's edit is not silently overwritten.
+    path += '?id=eq.'+encodeURIComponent(original.id);
+    warehouseFields.forEach(key=>{
+      const value = original[key];
+      path += '&'+key+'='+(value===null ? 'is.null' : 'eq.'+encodeURIComponent(typeof value==='string' ? JSON.stringify(value) : String(value)));
+    });
+  }
+  warehouseSaving = true;
+  document.getElementById('warehouseSave').disabled = true;
+  document.getElementById('warehouseCancel').disabled = true;
+  try {
+    await writeWarehouse(path,payload,original?'PATCH':'POST');
+    document.getElementById('warehouseDialog').close();
+    warehouseEditing = null;
+    showMessage('Gudang berhasil '+(original?'diperbarui.':'ditambahkan.'));
+    await loadWarehouses();
+  } catch (e) { error.textContent=e.message; }
+  finally {
+    warehouseSaving = false;
+    document.getElementById('warehouseSave').disabled = false;
+    document.getElementById('warehouseCancel').disabled = false;
+  }
+}
+document.getElementById('warehouseDialog').addEventListener('cancel',event=>{if(warehouseSaving)event.preventDefault();});
 
 let purchaseMaster = { barang: [], suppliers: [], warehouses: [] };
 const rupiah = value => new Intl.NumberFormat('id-ID', {style:'currency',currency:'IDR'}).format(Number(value || 0));
