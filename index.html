@@ -144,7 +144,7 @@
 <div id="warehouseTable" class="table-wrap"></div></div></section>
 <section id="purchases" class="section"><div class="panel"><div class="toolbar"><h3>Pembelian</h3><button id="newPurchase" class="btn" onclick="openPurchase()">+ Tambah Pembelian</button><button class="btn secondary" onclick="loadPurchases()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diterima. Penyimpanan akan menambah stok gudang.</p><div id="purchaseTable" class="table-wrap"></div></div></section>
 <section id="sales" class="section"><div class="panel"><div class="toolbar"><h3>Penjualan</h3><button id="newSale" class="btn" onclick="openSale()">+ Tambah Penjualan</button><button class="btn secondary" onclick="loadSales()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diserahkan kepada customer. Penyimpanan langsung mengurangi stok gudang.</p><div id="saleTable" class="table-wrap"></div></div></section>
-<section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><div id="stockTable" class="table-wrap"></div></div></section>
+<section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn" onclick="openOpeningStock()">+ Stok Awal</button><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><p class="small">Stok awal mencatat barang yang sudah tersedia sebelum memakai ERP. Pembelian baru dicatat melalui menu Pembelian.</p><div id="stockTable" class="table-wrap"></div></div><div class="panel"><h3>Riwayat Stok Awal</h3><div id="openingHistory" class="table-wrap"></div></div></section>
 <section id="payments" class="section">
 <div class="panel"><div class="toolbar"><h3>Kas & Bank</h3><button class="btn secondary" onclick="loadFinance()">Muat Ulang</button></div><div id="accountCards" class="cards"></div></div>
 <div class="panel" style="margin-top:20px"><h3>Piutang Customer</h3><p class="small">Catat pembayaran yang sudah diterima. Pembayaran dapat sebagian atau lunas.</p><div id="receivableTable" class="table-wrap"></div></div>
@@ -282,6 +282,18 @@
     </div>
   </form>
 </dialog>
+<dialog id="openingDialog"><form id="openingForm" class="modal"><h3>Catat Stok Awal</h3>
+<p class="small">Isi jumlah barang yang sudah ada. Pencatatan hanya satu kali per barang dan gudang yang belum memiliki riwayat transaksi.</p>
+<div class="grid">
+<label>Barang<select name="barang" class="input" required></select></label>
+<label>Gudang<select name="gudang" class="input" required></select></label>
+<label>Jumlah Stok Awal<input name="qty" class="input" type="number" min="0.01" max="1000000000" step="0.01" required></label>
+<label>Tanggal Stok Awal<input name="tanggal" class="input" type="date" required></label>
+<label class="full">Catatan<input name="catatan" class="input" maxlength="500"></label>
+</div><p class="small">Stok awal menambah persediaan tanpa membuat utang, pembelian, atau pengeluaran kas.</p>
+<p id="openingError" class="small" style="color:#b91c1c" role="alert"></p>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="closeOpeningStock()">Batal</button><button id="saveOpening" class="btn">Simpan Stok Awal</button></div>
+</form></dialog>
 <dialog id="warehouseDialog"><form class="modal" id="warehouseForm" onsubmit="event.preventDefault(); saveWarehouse()">
 <h3 id="warehouseTitle">Tambah Gudang</h3><div class="form-grid">
 <label>Kode Gudang<input name="kode_gudang" class="input" maxlength="50" required placeholder="Contoh: GDG-001"></label>
@@ -1202,12 +1214,54 @@ document.getElementById('purchaseForm').addEventListener('submit',async event=>{
   } catch(e) {errorBox.textContent='Belum dapat menyimpan: '+e.message+' Jika koneksi terputus, periksa daftar pembelian sebelum mengulang.';}
   finally {button.disabled=false;button.textContent='Simpan & Terima Barang';}
 });
-async function loadStocks() {
-  const target=document.getElementById('stockTable');
-  try { const rows=await api('stocks?select=*,master_barang(kode_barang,nama_barang),warehouses(nama_gudang)&order=id.desc');
-    target.innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Barang</th><th>Gudang</th><th>Stok</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)}</td><td>${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.stok)}</td></tr>`).join('')}</tbody></table>`:'Belum ada stok gudang.';
-  } catch(e) {target.textContent=e.message;}
+let stockGeneration=0, openingPending=false, openingAttempt=null;
+async function stockAll(path) {
+ const rows=[];let cursor='0';
+ for(;;){const batch=await api(path+'&id=gt.'+encodeURIComponent(cursor)+'&order=id.asc&limit=500');if(!batch.length)return rows;rows.push(...batch);const next=String(batch.at(-1).id);if(next===cursor)throw new Error('Daftar belum lengkap.');cursor=next;}
 }
+async function loadStocks() {
+ const target=document.getElementById('stockTable'),history=document.getElementById('openingHistory'),generation=++stockGeneration;
+ target.textContent='Memuat stok…';history.textContent='Memuat riwayat…';
+ const results=await Promise.allSettled([stockAll('stocks?select=id,stok,master_barang(kode_barang,nama_barang,satuan),warehouses(nama_gudang)'),api('stock_openings?select=request_id,qty,tanggal,catatan,master_barang(kode_barang,nama_barang),warehouses(nama_gudang)&order=created_at.desc&limit=100')]);
+ if(generation!==stockGeneration)return;
+ if(results[0].status==='fulfilled'){const rows=results[0].value;target.innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Barang</th><th>Gudang</th><th>Stok</th><th>Satuan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)}</td><td>${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.stok)}</td><td>${esc(x.master_barang?.satuan||'')}</td></tr>`).join('')}</tbody></table>`:'Belum ada stok gudang.';}else target.textContent='Stok belum dapat dimuat: '+results[0].reason.message;
+ if(results[1].status==='fulfilled'){const rows=results[1].value;history.innerHTML=rows.length?`<table><thead><tr><th>Tanggal</th><th>Barang</th><th>Gudang</th><th>Jumlah Awal</th><th>Catatan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.tanggal)}</td><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.qty)}</td><td>${esc(x.catatan)}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 pencatatan terbaru milik akun ini.</p>`:'Belum ada pencatatan stok awal oleh akun ini.';}else history.textContent='Riwayat belum dapat dimuat: '+results[1].reason.message;
+}
+async function openOpeningStock(){
+ if(openingPending)return;
+ const dialog=document.getElementById('openingDialog'),form=document.getElementById('openingForm');
+ if(dialog.open)return;
+ try{
+ const [barang,gudang]=await Promise.all([stockAll('master_barang?select=id,kode_barang,nama_barang,satuan&status_aktif=eq.true'),stockAll('warehouses?select=id,kode_gudang,nama_gudang&status_aktif=eq.true')]);
+ form.reset();openingAttempt=null;document.getElementById('openingError').textContent='';
+ form.elements.barang.innerHTML='<option value="">Pilih barang</option>'+barang.map(x=>`<option value="${esc(x.id)}">${esc(x.kode_barang)} — ${esc(x.nama_barang)} (${esc(x.satuan||'')})</option>`).join('');
+ form.elements.gudang.innerHTML='<option value="">Pilih gudang</option>'+gudang.map(x=>`<option value="${esc(x.id)}">${esc(x.nama_gudang)}</option>`).join('');
+ form.elements.barang.value=String(barang.find(x=>x.kode_barang==='BLZ_ESS_001')?.id||'');form.elements.gudang.value=String(gudang.find(x=>x.kode_gudang==='GDG-PST')?.id||'');form.elements.qty.value=300;
+ form.elements.tanggal.value=todayJakarta();form.elements.tanggal.max=todayJakarta();dialog.showModal();
+ }catch(e){showMessage('Formulir stok awal belum dapat dibuka: '+e.message);}
+}
+function closeOpeningStock(){if(!openingPending)document.getElementById('openingDialog').close();}
+document.getElementById('openingDialog').addEventListener('cancel',e=>{if(openingPending)e.preventDefault();});
+function openingPayload(form){
+ const qty=Number(form.elements.qty.value),tanggal=form.elements.tanggal.value;
+ if(!form.elements.barang.value||!form.elements.gudang.value||!Number.isFinite(qty)||qty<=0||qty>1000000000||Math.abs(qty*100-Math.round(qty*100))>1e-6||!tanggal||tanggal>todayJakarta())throw new Error('Isi barang, gudang, tanggal, dan jumlah stok yang valid (maksimal 2 angka desimal).');
+ return {p_barang:form.elements.barang.value,p_gudang:form.elements.gudang.value,p_qty:qty,p_tanggal:tanggal,p_catatan:form.elements.catatan.value.trim()};
+}
+document.getElementById('openingForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(openingPending)return;
+ const form=e.currentTarget,error=document.getElementById('openingError');error.textContent='';if(!form.reportValidity())return;
+ let payload;try{payload=openingPayload(form);}catch(err){error.textContent=err.message;return;}
+ const signature=JSON.stringify(payload);
+ if(openingAttempt&&openingAttempt.signature!==signature){error.textContent='Permintaan sebelumnya belum terkonfirmasi. Muat ulang stok dan riwayat sebelum membuat pencatatan lain. Untuk mencoba ulang, gunakan isian sebelumnya.';return;}
+ if(!openingAttempt)openingAttempt={signature,request:crypto.randomUUID()};
+ const controls=[...form.querySelectorAll('input,select,button')].map(x=>[x,x.disabled]);openingPending=true;controls.forEach(([x])=>x.disabled=true);document.getElementById('saveOpening').textContent='Menyimpan…';
+ try{
+ const result=await api('rpc/hanyojo_set_opening_stock',{...payload,p_request:openingAttempt.request});
+ if(result?.request_id!==openingAttempt.request)throw new Error('Hasil penyimpanan belum terkonfirmasi.');
+ document.getElementById('openingDialog').close();openingAttempt=null;showMessage('Stok awal berhasil dicatat.');await Promise.allSettled([loadStocks(),loadBarang()]);
+ }catch(err){error.textContent='Belum dapat menyimpan: '+err.message+' Jika koneksi terputus, periksa stok dan riwayat. Percobaan ulang dengan isian yang sama tidak menggandakan stok.';}
+ finally{openingPending=false;controls.forEach(([x,disabled])=>x.disabled=disabled);document.getElementById('saveOpening').textContent='Simpan Stok Awal';}
+});
 
 let saleMaster = {barang:[],customers:[],warehouses:[],accounts:[],stocks:[]};
 let salePending=false;
