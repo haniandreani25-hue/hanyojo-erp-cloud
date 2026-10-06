@@ -1090,7 +1090,7 @@ async function saveWarehouse() {
     path += '?id=eq.'+encodeURIComponent(original.id);
     warehouseFields.forEach(key=>{
       const value = original[key];
-      path += '&'+key+'='+(value===null ? 'is.null' : 'eq.'+encodeURIComponent(typeof value==='string' ? JSON.stringify(value) : String(value)));
+      path += '&'+key+'='+(value===null ? 'is.null' : 'eq.'+encodeURIComponent(String(value)));
     });
   }
   warehouseSaving = true;
