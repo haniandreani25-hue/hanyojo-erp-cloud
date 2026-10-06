@@ -342,7 +342,7 @@
 <p id="saleError" role="alert" class="login-error"></p>
 <div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('saleDialog').close()">Batal</button><button id="saveSale" class="btn" type="submit">Simpan &amp; Keluarkan Barang</button></div>
 </form></dialog>
-<dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
+<dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button id="saleInvoice" class="btn" disabled onclick="printSaleInvoice()">Cetak Invoice / PDF</button><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.min.js"
   integrity="sha384-4bKASEcnXfYfA/rrhF9qD3mYowkb5k4Xbzbrf3ccqgZrplKUrwnA2Q/L5xcdZFAp"
   crossorigin="anonymous"></script>
@@ -1280,19 +1280,74 @@ async function loadLatestSales() {
   target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Customer</th><th>Total</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(rupiah(x.grand_total))}</td></tr>`).join('')}</tbody></table>`:'Belum ada transaksi penjualan.';
  } catch(e) {target.textContent='Penjualan belum dapat dibaca: '+e.message;}
 }
+let invoiceSaleId=null;
+let saleDetailGeneration=0;
 async function showSaleDetail(id) {
+ const generation=++saleDetailGeneration;
+ invoiceSaleId=null;document.getElementById('saleInvoice').disabled=true;
  try {
   const [rows,sales,receivables]=await Promise.all([
    api('sales_items?select=*,master_barang(kode_barang,nama_barang)&sales_id=eq.'+encodeURIComponent(id)),
    api('sales?select=nomor_penjualan,metode_pembayaran,jatuh_tempo,catatan,cash_accounts(name)&id=eq.'+encodeURIComponent(id)),
    api('receivables?select=total,paid,due_date,status&sales_id=eq.'+encodeURIComponent(id))
   ]);
+  if(generation!==saleDetailGeneration)return;
   const sale=sales[0],r=receivables[0];
   if(!sale) throw new Error('Penjualan tidak ditemukan.');
   document.getElementById('saleDetailContent').innerHTML=`<p>${esc(sale.nomor_penjualan)} · ${esc(sale.metode_pembayaran)}</p><p class="small">${esc(sale.catatan)}</p><table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.qty)}</td><td>${esc(rupiah(x.harga))}</td><td>${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table>${r?`<p>Sisa piutang: <strong>${esc(rupiah(Number(r.total)-Number(r.paid)))}</strong> · Jatuh tempo: ${esc(r.due_date)} · ${esc(r.status)}</p>`:sale.cash_accounts?`<p>Rekening penerima: ${esc(sale.cash_accounts.name)}</p>`:''}`;
+  if(generation!==saleDetailGeneration)return;
+  invoiceSaleId=id;document.getElementById('saleInvoice').disabled=false;
   document.getElementById('saleDetail').showModal();
  } catch(e) {showMessage(e.message);}
 }
+
+const invoiceCompany={name:'PT Hanyojo Sun Java',address:'Jl. Setra Regency Townhouse No.A6, Ciwaruga, Kec. Parongpong, Kabupaten Bandung Barat, Jawa Barat 40559',whatsapp:'+62 811-227-389',bank:'BCA',account:'2823411111',holder:'PT Hanyojo Sun Java'};
+async function readSaleInvoice(id){
+ if(!/^\d+$/.test(String(id)))throw Error('Nomor transaksi tidak valid.');
+ const [sales,receivables]=await Promise.all([
+  api('sales?select=*,customers(nama_customer,nama_toko,alamat,nomor_hp),warehouses(nama_gudang)&id=eq.'+encodeURIComponent(id)),
+  api('receivables?select=total,paid,due_date,status&sales_id=eq.'+encodeURIComponent(id))
+ ]);
+ const sale=sales[0];if(!sale)throw Error('Penjualan tidak ditemukan.');
+ if(sale.status!=='Selesai')throw Error('Invoice hanya tersedia untuk penjualan selesai.');
+ let rows=[],last=0;
+ for(;;){
+  const page=await api('sales_items?select=id,qty,harga,diskon,subtotal,master_barang(kode_barang,nama_barang,satuan)&sales_id=eq.'+encodeURIComponent(id)+'&id=gt.'+last+'&order=id.asc&limit=500');
+  rows.push(...page);if(page.length<500)break;
+  const next=Number(page[page.length-1].id);if(!Number.isSafeInteger(next)||next<=last)throw Error('Rincian invoice tidak lengkap.');last=next;
+ }
+ if(!rows.length)throw Error('Rincian barang belum tersedia.');
+ if(receivables.length>1)throw Error('Data piutang perlu diperiksa sebelum mencetak.');
+ const r=receivables[0];
+ if(sale.metode_pembayaran==='Tempo'&&!r)throw Error('Data piutang belum tersedia. Muat ulang sebelum mencetak.');
+ const money=v=>{const n=Number(v);if(v==null||!Number.isFinite(n)||n<0||!Number.isSafeInteger(Math.round(n*100)))throw Error('Nilai invoice tidak valid.');return Math.round(n*100);};
+ const total=money(sale.grand_total),paid=r?money(r.paid):total;
+ if(r&&money(r.total)!==total)throw Error('Total piutang berbeda dari penjualan.');
+ if(paid>total)throw Error('Pembayaran melebihi total invoice.');
+ const lineTotal=rows.reduce((n,x)=>n+money(x.subtotal),0),subtotal=money(sale.subtotal),discount=money(sale.diskon_total),tax=money(sale.ppn_total);
+ if(lineTotal!==subtotal||subtotal-discount+tax!==total)throw Error('Rincian dan total invoice belum sesuai.');
+ return {sale,rows,total:total/100,paid:paid/100,balance:(total-paid)/100,due:r?.due_date||sale.jatuh_tempo,subtotal:subtotal/100,discount:discount/100,tax:tax/100};
+}
+function saleInvoiceHtml(d){
+ const c=invoiceCompany,s=d.sale,customer=s.customers||{};
+ const status=d.balance===0?'LUNAS':d.paid>0?'DIBAYAR SEBAGIAN':'BELUM LUNAS';
+ const date=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')?v.slice(8,10)+'/'+v.slice(5,7)+'/'+v.slice(0,4):'—';
+ const text=v=>esc(v).replaceAll('\n','<br>');
+ return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice ${esc(s.nomor_penjualan)}</title><style>
+ *{box-sizing:border-box}body{margin:0;background:#eef0f3;color:#172033;font:13px Arial,sans-serif}.toolbar{padding:14px;text-align:center}.toolbar button{background:#172033;color:white;border:0;padding:12px 20px;border-radius:8px;cursor:pointer}.sheet{max-width:800px;margin:0 auto 24px;padding:36px;background:white}header{display:flex;justify-content:space-between;gap:30px;border-bottom:3px solid #172033;padding-bottom:20px}h1{font-size:27px;margin:0 0 8px}h2{font-size:19px;margin:0 0 10px}p{margin:6px 0;line-height:1.5}.company{max-width:440px}.badge{font-weight:bold;margin-top:10px}.meta{display:flex;justify-content:space-between;gap:30px;margin:22px 0}.meta>div{flex:1}table{width:100%;border-collapse:collapse;margin:20px 0}th,td{padding:10px 8px;border-bottom:1px solid #ddd;text-align:left;overflow-wrap:anywhere}th{background:#f1f3f6}.num{text-align:right;white-space:nowrap}.totals{width:340px;max-width:100%;margin-left:auto}.totals p{display:flex;justify-content:space-between;gap:20px}.grand{font-size:17px;border-top:2px solid #172033;padding-top:10px}.note{white-space:normal;overflow-wrap:anywhere}footer{margin-top:28px;border-top:1px solid #ddd;padding-top:14px;font-size:12px}.muted{color:#667085}.small{font-size:11px}.nowrap{white-space:nowrap}@page{size:A4;margin:14mm}@media print{body{background:white}.toolbar{display:none}.sheet{padding:0;margin:0;max-width:none}thead{display:table-header-group}tr,.totals,footer{break-inside:avoid}header{break-inside:avoid}.num{white-space:normal}}@media(max-width:600px){.sheet{padding:18px}header,.meta{display:block}.meta>div{margin-bottom:16px}table{font-size:11px}th,td{padding:7px 3px}}
+ </style></head><body><div class="toolbar"><button onclick="window.print()">Cetak / Simpan PDF</button><p>Pada jendela cetak, pilih PDF → Simpan sebagai PDF.</p></div><main class="sheet"><header><div class="company"><h2>${esc(c.name)}</h2><p>${esc(c.address)}</p><p>WhatsApp: ${esc(c.whatsapp)}</p></div><div><h1>INVOICE</h1><p>${esc(s.nomor_penjualan)}</p><p class="badge">${status}</p></div></header><section class="meta"><div><strong>Kepada</strong><p>${esc(customer.nama_customer||'—')}</p>${customer.nama_toko?`<p>${esc(customer.nama_toko)}</p>`:''}${customer.alamat?`<p>${text(customer.alamat)}</p>`:''}${customer.nomor_hp?`<p>${esc(customer.nomor_hp)}</p>`:''}</div><div><p>Tanggal: ${date(s.tanggal)}</p><p>Pembayaran: ${esc(s.metode_pembayaran)}</p>${s.metode_pembayaran==='Tempo'?`<p>Jatuh tempo: ${date(d.due)}</p>`:''}<p>Gudang: ${esc(s.warehouses?.nama_gudang||'—')}</p></div></section><table><thead><tr><th>Barang</th><th class="num">Jumlah</th><th class="num">Harga</th><th class="num">Diskon</th><th class="num">Subtotal</th></tr></thead><tbody>${d.rows.map(x=>`<tr><td>${esc(x.master_barang?.nama_barang||'Barang')}<br><span class="muted small">${esc(x.master_barang?.kode_barang)}</span></td><td class="num">${esc(x.qty)} ${esc(x.master_barang?.satuan)}</td><td class="num">${esc(rupiah(x.harga))}</td><td class="num">${esc(rupiah(x.diskon||0))}</td><td class="num">${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table><section class="totals"><p><span>Subtotal</span><span>${esc(rupiah(d.subtotal))}</span></p><p><span>Diskon transaksi</span><span>${esc(rupiah(d.discount))}</span></p><p><span>PPN tercatat (${esc(s.ppn_persen||0)}%)</span><span>${esc(rupiah(d.tax))}</span></p><p class="grand"><strong>Total</strong><strong>${esc(rupiah(d.total))}</strong></p><p><span>Sudah dibayar</span><span>${esc(rupiah(d.paid))}</span></p><p><strong>Sisa tagihan</strong><strong>${esc(rupiah(d.balance))}</strong></p></section>${s.catatan?`<p class="note"><strong>Catatan:</strong> ${text(s.catatan)}</p>`:''}<footer>${d.balance>0?`<p><strong>Pembayaran: ${esc(c.bank)} ${esc(c.account)}</strong><br>Atas nama ${esc(c.holder)}</p>`:''}<p>Terima kasih atas kepercayaan Anda.</p><p class="muted">Invoice penjualan • ${esc(c.name)}</p></footer></main></body></html>`;
+}
+async function printSaleInvoice(){
+ if(!invoiceSaleId)return;
+ const id=invoiceSaleId,button=document.getElementById('saleInvoice');
+ const preview=window.open('','_blank');
+ if(!preview){showMessage('Izinkan jendela pop-up untuk menampilkan invoice.');return;}
+ preview.opener=null;preview.document.write('<!doctype html><html lang="id"><title>Memuat invoice</title><body><p>Memuat invoice…</p></body></html>');preview.document.close();button.disabled=true;
+ try{const data=await readSaleInvoice(id);if(preview.closed)return;preview.document.open();preview.document.write(saleInvoiceHtml(data));preview.document.close();}
+ catch(e){if(!preview.closed){preview.document.body.textContent='Invoice belum dapat dicetak: '+e.message;}showMessage(e.message);}
+ finally{button.disabled=invoiceSaleId===null;}
+}
+
 async function openSale() {
  const button=document.getElementById('newSale');button.disabled=true;
  try {
