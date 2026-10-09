@@ -119,7 +119,7 @@
     </section>
 
     <section id="barang" class="section">
-      <div class="panel"><div class="toolbar"><h3>Master Barang</h3><button class="btn" onclick="openBarang()">+ Tambah Barang</button></div>
+      <div class="panel"><div class="toolbar"><h3>Master Barang</h3><button class="btn" data-finance-only onclick="openBarang()">+ Tambah Barang</button></div>
       <div id="barangTable" class="table-wrap">Belum ada data.</div></div>
     </section>
 
@@ -134,18 +134,18 @@
   <div class="panel">
     <div class="toolbar">
       <h3>Supplier</h3>
-      <button class="btn" onclick="openSupplier()">+ Tambah Supplier</button>
+      <button class="btn" data-finance-only onclick="openSupplier()">+ Tambah Supplier</button>
     </div>
     <div id="supplierTable" class="table-wrap">Belum ada data supplier.</div>
   </div>
 </section>
 <section id="warehouses" class="section"><div class="panel">
-<div class="toolbar"><h3>Daftar Gudang</h3><button class="btn" onclick="openWarehouse()">+ Tambah Gudang</button><button class="btn secondary" onclick="loadWarehouses()">Muat Ulang</button></div>
+<div class="toolbar"><h3>Daftar Gudang</h3><button class="btn" data-finance-only onclick="openWarehouse()">+ Tambah Gudang</button><button class="btn secondary" onclick="loadWarehouses()">Muat Ulang</button></div>
 <p class="small" style="margin-bottom:16px">Kelola lokasi penyimpanan barang. Gudang aktif tersedia pada formulir pembelian dan penjualan.</p>
 <div id="warehouseTable" class="table-wrap"></div></div></section>
 <section id="purchases" class="section"><div class="panel"><div class="toolbar"><h3>Pembelian</h3><button id="newPurchase" class="btn" onclick="openPurchase()">+ Tambah Pembelian</button><button class="btn secondary" onclick="loadPurchases()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diterima. Penyimpanan akan menambah stok gudang.</p><div id="purchaseTable" class="table-wrap"></div></div></section>
 <section id="sales" class="section"><div class="panel"><div class="toolbar"><h3>Penjualan</h3><button id="newSale" class="btn" onclick="openSale()">+ Tambah Penjualan</button><button class="btn secondary" onclick="loadSales()">Muat Ulang</button></div><p class="small" style="margin-bottom:16px">Catat barang yang sudah diserahkan kepada customer. Penyimpanan langsung mengurangi stok gudang.</p><div id="saleTable" class="table-wrap"></div></div></section>
-<section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn" onclick="openOpeningStock()">+ Stok Awal</button><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><p class="small">Stok awal mencatat barang yang sudah tersedia sebelum memakai ERP. Pembelian baru dicatat melalui menu Pembelian.</p><div id="stockTable" class="table-wrap"></div></div><div class="panel"><h3>Riwayat Stok Awal</h3><div id="openingHistory" class="table-wrap"></div></div></section>
+<section id="stocks" class="section"><div class="panel"><div class="toolbar"><h3>Stok per Gudang</h3><button class="btn" data-finance-only onclick="openOpeningStock()">+ Stok Awal</button><button class="btn secondary" onclick="loadStocks()">Muat Ulang</button></div><p class="small">Stok awal mencatat barang yang sudah tersedia sebelum memakai ERP. Pembelian baru dicatat melalui menu Pembelian.</p><div id="stockTable" class="table-wrap"></div></div><div class="panel"><h3>Riwayat Stok Awal</h3><div id="openingHistory" class="table-wrap"></div></div></section>
 <section id="payments" class="section">
 <div class="panel"><div class="toolbar"><h3>Kas & Bank</h3><button class="btn secondary" onclick="loadFinance()">Muat Ulang</button></div><div id="accountCards" class="cards"></div></div>
 <div class="panel" style="margin-top:20px"><h3>Piutang Customer</h3><p class="small">Catat pembayaran yang sudah diterima. Pembayaran dapat sebagian atau lunas.</p><div id="receivableTable" class="table-wrap"></div></div>
@@ -159,7 +159,7 @@
 <div class="panel report-controls" style="margin-top:16px"><h3>Biaya Operasional</h3><p>Catat biaya yang sudah dibayar seperti ongkir kurir, gaji, listrik, dan iklan. Pembelian persediaan tidak dicatat ulang di sini.</p><button class="btn" type="button" onclick="openExpense()">+ Catat Biaya</button></div><div class="panel" style="margin-top:16px"><h3>Rekap PPN Bulanan</h3><p class="small">PPN keluaran diambil otomatis dari penjualan selesai dalam bulan yang dipilih. Masukkan PPN masukan yang dapat dikreditkan dan kompensasi sesuai faktur / catatan Coretax. Data pembelian saat ini belum memisahkan PPN, sehingga masukan diisi manual.</p><form id="taxMonthForm"><div class="form-grid"><label>Bulan pajak<input class="input" name="month" type="month" min="2020-01" max="2100-12" required onchange="loadTaxMonth()"></label><label>PPN masukan dapat dikreditkan (Rp)<input class="input" name="input_credit" type="number" min="0" max="1000000000000" step="0.01" value="0" required oninput="previewTaxMonth()"></label><label>Kompensasi dari masa sebelumnya (Rp)<input class="input" name="carry_credit" type="number" min="0" max="1000000000000" step="0.01" value="0" required oninput="previewTaxMonth()"></label><label>Catatan / referensi faktur<input class="input" name="note" maxlength="1000"></label></div><div class="modal-actions"><button class="btn secondary" type="button" onclick="loadTaxMonth()">Muat Bulan</button><button class="btn" id="saveTaxMonth" type="submit" disabled>Simpan PPN Masukan</button><button class="btn secondary" id="taxMonthCsv" type="button" disabled onclick="downloadTaxMonthCsv()">Unduh Rekap CSV</button></div></form><div id="taxMonthSummary" class="table-wrap"></div><p class="small" id="taxMonthStatus" role="status"></p><p class="small">Estimasi ini belum mencakup retur, pembetulan, transaksi di luar ERP, atau penyesuaian lainnya. Cocokkan dengan Coretax sebelum menyetor. PPN tidak dikurangkan lagi dari laba operasional dan rekap ini belum mencatat pembayaran pajak.</p><a href="https://pajak.go.id/id/pajak-masukan" target="_blank" rel="noopener">Pedoman pengkreditan PPN — DJP</a></div>
 <div id="reportResult" class="hidden"><div class="panel"><h3>Laba Rugi</h3><div id="profitSummary"></div><p id="profitNote" class="small"></p></div><div class="panel" style="margin-top:16px"><h3>Rincian biaya operasional</h3><div id="reportExpenses" class="table-wrap"></div></div><h2 style="margin:20px 0">HANYOJO — Laporan transaksi</h2><p id="reportPeriod" style="margin-bottom:16px"></p><div id="reportSummary" class="cards"></div><div class="panel"><h3>Penjualan selesai</h3><div id="reportSales" class="table-wrap"></div></div><div class="panel" style="margin-top:20px"><h3>Pembelian diterima</h3><div id="reportPurchases" class="table-wrap"></div></div><div class="panel" style="margin-top:20px"><h3>Kas harian</h3><p class="small">Penerimaan dan pengeluaran yang tercatat di mutasi kas dan bank.</p><div id="reportDaily" class="table-wrap"></div></div><div class="panel" style="margin-top:20px"><h3>Rincian mutasi kas dan bank</h3><div id="reportCash" class="table-wrap"></div></div></div></section>
 <section id="payroll" class="section"><div class="panel"><h2>Gaji Bulanan</h2><p>Simpan rincian slip dan buka riwayat. Penyimpanan slip belum mencatat pembayaran atau mengurangi kas. Akses database dibatasi pada akun yang diaktifkan.</p><p id="salaryAccessMessage" role="status">Memeriksa akses…</p><button type="button" class="btn" id="salaryNew">Slip Baru</button><button type="button" class="btn secondary" id="salaryReload">Muat Riwayat</button><div id="salaryHistory"></div><iframe id="payrollPreview" title="Formulir slip gaji bulanan" sandbox="allow-scripts allow-modals" style="width:100%;height:1300px;border:0" referrerpolicy="no-referrer"></iframe></div></section>
-    <section id="settings" class="section">
+    <section id="settings" class="section"><div class="panel"><h3>Akses CEO dan Admin</h3><p>Akun harus sudah terdaftar dan email terkonfirmasi. Hanya Owner dapat mengubah akses. Admin tidak menerima HPP, harga beli, kas/bank, gaji, dan laporan laba.</p><form onsubmit="assignAccess(event)"><div class="form-grid"><label>Email akun<input class="input" name="email" type="email" required value="inasylvianiamanda@gmail.com"></label><label>Akses<select class="input" name="role"><option value="ceo">CEO</option><option value="admin">Admin</option></select></label></div><button class="btn" type="submit">Aktifkan Akses</button></form><p id="accessStatus" role="status"></p></div>
       <div class="panel">
         <h3>Pengaturan Koneksi Supabase</h3>
         <p class="small" style="margin-bottom:14px">Gunakan hanya Publishable Key. Jangan pernah memakai Secret Key di website.</p>
@@ -375,8 +375,53 @@ function getAuthClient() {
 }
 
 
+let erpRole=null, roleGeneration=0, adminDataPromise=null;
+const adminPages=new Set(['dashboard','barang','customers','suppliers','warehouses','sales','stocks']);
+function pageAllowed(page){return erpRole==='owner'||(erpRole==='ceo'&&page!=='settings')||(erpRole==='admin'&&adminPages.has(page));}
+async function accessRpc(name,body={}) {
+ const response=await fetch(cfg.url+'/rest/v1/rpc/'+name,{method:'POST',headers:headers(),body:JSON.stringify(body)});
+ const result=await response.json();if(!response.ok)throw Error(result.message||'Akses belum tersedia.');return result;
+}
+async function resolveAccess(session){
+ const generation=++roleGeneration;erpRole=null;adminDataPromise=null;
+ document.getElementById('erpApp').classList.add('hidden');
+ if(!session?.user)return;
+ try{
+  const role=await accessRpc('hanyojo_access_role');if(generation!==roleGeneration)return;
+  if(!['owner','ceo','admin'].includes(role))throw Error('Akun belum diberi akses ERP oleh Owner.');
+  erpRole=role;
+  document.getElementById('loginScreen').classList.add('hidden');document.getElementById('erpApp').classList.remove('hidden');
+  document.getElementById('currentUserRole').textContent=(role==='ceo'?'CEO':role==='owner'?'Owner':'Admin')+' — PT HANYOJO SUN JAVA';
+  document.querySelectorAll('.menu button').forEach(b=>{b.hidden=!pageAllowed(b.dataset.page);b.style.display=b.hidden?'none':'';});
+  document.querySelectorAll('[data-finance-only]').forEach(x=>x.hidden=role==='admin');
+  // Remove values retained from another account before loading this role's data.
+  for(const id of ['barangTable','saleTable','stockTable','salaryHistory','latestSales','reportSales','reportPurchases','reportCash','profitSummary','saleDetailContent','accountCards','purchaseTable','payableTable','payableHistory','cashHistory'])document.getElementById(id)?.replaceChildren();
+  for(const f of document.querySelectorAll('form'))if(f.id!=='loginForm')f.reset();
+  saleMaster={barang:[],customers:[],warehouses:[],accounts:[],stocks:[]};reportData=null;invoiceSaleId=null;
+  document.querySelector('.menu button[data-page="dashboard"]').click();
+  await Promise.allSettled([loadDashboard(),loadLatestSales()]);
+ }catch(e){if(generation!==roleGeneration)return;document.getElementById('erpApp').classList.add('hidden');document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('loginError').textContent=e.message;}
+}
+async function adminRead(path){
+ const [table,query='']=path.split('?');
+ const allowed=new Set(['master_barang','sales_items','cash_accounts','stocks','sales']);
+ if(!allowed.has(table))throw Error('Data ini hanya tersedia untuk Owner dan CEO.');
+ if(!adminDataPromise)adminDataPromise=accessRpc('hanyojo_admin_data').catch(e=>{adminDataPromise=null;throw e;});
+ const data=await adminDataPromise;let rows=[...(data[table]||[])];const p=new URLSearchParams(query);
+ for(const [key,value]of p){if(['select','order','limit','offset'].includes(key))continue;const [op,...parts]=value.split('.');const val=parts.join('.');if(!['eq','gt','gte','lt','lte'].includes(op))throw Error('Filter tidak tersedia.');rows=rows.filter(r=>{const x=r[key];if(op==='eq')return String(x)===val;return op==='gt'?Number(x)>Number(val):op==='gte'?Number(x)>=Number(val):op==='lt'?Number(x)<Number(val):Number(x)<=Number(val);});}
+ if(p.get('order')){const[key,dir]=p.get('order').split('.');rows.sort((a,b)=>(typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key])))*(dir==='desc'?-1:1));}
+ if(p.get('limit'))rows=rows.slice(0,Number(p.get('limit')));return rows;
+}
+async function loadAdminBarang(){
+ const target=document.getElementById('barangTable');target.textContent='Memuat barang…';
+ try{const [rows,stocks]=await Promise.all([adminRead('master_barang?order=id.desc'),adminRead('stocks')]);const total={};for(const x of stocks)total[x.barang_id]=(total[x.barang_id]||0)+Number(x.stok||0);
+ target.innerHTML='<table><thead><tr><th>Kode</th><th>Barang</th><th>Harga Ritel</th><th>Harga Modern Market</th><th>Stok</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.kode_barang)+'</td><td>'+esc(x.nama_barang)+'</td><td>'+esc(rupiah(x.harga_jual))+'</td><td>'+esc(x.harga_modern==null?'Belum diatur':rupiah(x.harga_modern))+'</td><td>'+esc(total[x.id]||0)+'</td></tr>').join('')+'</tbody></table>';
+ }catch(e){target.textContent=e.message;}
+}
+async function assignAccess(event){event.preventDefault();if(erpRole!=='owner')return;const f=event.target,b=f.querySelector('button'),status=document.getElementById('accessStatus');b.disabled=true;try{const result=await accessRpc('hanyojo_assign_access',{p_email:f.elements.email.value.trim(),p_role:f.elements.role.value});status.textContent='Akses '+result.role+' aktif untuk '+result.email+'.';}catch(e){status.textContent=e.message;}finally{b.disabled=false;}}
+
 const payrollPreviewEmails = new Set(['haniandr1225@gmail.com','inasylvianiamanda@gmail.com']);
-function payrollPreviewAllowed(session) {return Boolean(session?.user && payrollPreviewEmails.has(String(session.user.email || '').trim().toLowerCase()));}
+function payrollPreviewAllowed(session) {return Boolean(session?.user && ['owner','ceo'].includes(erpRole));}
 function refreshPayrollPreviewAccess(session) {
  const allowed = payrollPreviewAllowed(session);
  const nav = document.getElementById('payrollNav');
@@ -438,20 +483,21 @@ document.getElementById('salaryNew').onclick=()=>{if(confirm('Buka slip baru? Pa
 document.getElementById('salaryReload').onclick=()=>loadSalaryHistory().catch(e=>document.getElementById('salaryAccessMessage').textContent=e.message);
 
 function setAuthView(session) {
-  refreshPayrollPreviewAccess(session);
+  if(authSession?.user?.id!==session?.user?.id)erpRole=null;
   authSession = session;
+  refreshPayrollPreviewAccess(session);
   const signedIn = Boolean(session?.user);
   document.getElementById("loginScreen").classList.toggle("hidden", signedIn);
   document.getElementById("erpApp").classList.toggle("hidden", !signedIn);
 
+  if (!signedIn) {erpRole=null;roleGeneration++;adminDataPromise=null;}
   if (signedIn) {
     const user = session.user;
-    const role = user.app_metadata?.role || "pengguna";
+    const role = erpRole || "pengguna";
     document.getElementById("currentUserEmail").textContent = user.email || "Pengguna";
     document.getElementById("currentUserRole").textContent =
       role.charAt(0).toUpperCase() + role.slice(1) + " — PT HANYOJO SUN JAVA";
-    loadDashboard();
-    loadLatestSales();
+    if(!erpRole)resolveAccess(session);
   }
 }
 
@@ -513,6 +559,7 @@ async function logout() {
 document.querySelectorAll(".menu button").forEach((button) => {
   button.addEventListener("click", () => {
     const page = button.dataset.page;
+    if(!pageAllowed(page))return;
     const target = document.getElementById(page);
 
     if (!target) {
@@ -632,6 +679,7 @@ function esc(value) {
     .replaceAll("'", "&#039;");
 }
 function openBarang() {
+ if(erpRole==='admin'){showMessage('Perubahan ini dilakukan Owner atau CEO.');return;}
   const form = document.getElementById("barangForm");
   form.reset(); delete form.dataset.editId;
   form.querySelector("h3").textContent = "Tambah Barang";
@@ -691,6 +739,7 @@ const editId = form.dataset.editId;
 }
   
   function openSupplier() {
+ if(erpRole==='admin'){showMessage('Perubahan ini dilakukan Owner atau CEO.');return;}
   document.getElementById("supplierDialog").showModal();
 }
 async function saveSupplier() {
@@ -780,6 +829,7 @@ async function saveCustomer() {
 
   try {
     const getCount = async (table) => {
+      if(erpRole==='admin'&&table==='master_barang')return (await adminRead('master_barang')).length;
       const r = await fetch(`${cfg.url}/rest/v1/${table}?select=id`, {
         headers: headers({
           "Prefer": "count=exact"
@@ -809,6 +859,7 @@ async function saveCustomer() {
   }
 }
 async function loadBarang() {
+  if(erpRole==='admin')return loadAdminBarang();
   const table = document.getElementById("barangTable");
   if (!table) return;
 
@@ -1130,6 +1181,7 @@ async function loadWarehouses() {
   }
 }
 async function openWarehouse(id) {
+ if(erpRole==='admin'){showMessage('Perubahan gudang dilakukan Owner atau CEO.');return;}
   if (warehouseSaving) return;
   const form = document.getElementById('warehouseForm');
   try {
@@ -1211,6 +1263,11 @@ async function api(path, body) {
   const session = await client.auth.getSession();
   if (session.error || !session.data.session) throw new Error('Sesi berakhir. Silakan masuk kembali.');
   authSession = session.data.session;
+  if(erpRole==='admin'){
+    if(body!==undefined){if(path==='rpc/hanyojo_post_sale_v3'){const result=await accessRpc('hanyojo_admin_post_sale',body);adminDataPromise=null;return result;}if(path==='customers'){}else throw Error('Tindakan ini hanya tersedia untuk Owner dan CEO.');}
+    const table=path.split('?')[0];if(['master_barang','sales_items','cash_accounts','stocks','sales'].includes(table))return adminRead(path);
+    if(!['customers','suppliers','warehouses','receivables','stock_movements'].includes(table))throw Error('Data ini hanya tersedia untuk Owner dan CEO.');
+  }
   const response = await fetch(cfg.url + '/rest/v1/' + path, {
     method: body === undefined ? 'GET' : 'POST', headers: headers(),
     ...(body === undefined ? {} : {body:JSON.stringify(body)})
@@ -1301,7 +1358,7 @@ async function stockAll(path) {
 async function loadStocks() {
  const target=document.getElementById('stockTable'),history=document.getElementById('openingHistory'),generation=++stockGeneration;
  target.textContent='Memuat stok…';history.textContent='Memuat riwayat…';
- const results=await Promise.allSettled([stockAll('stocks?select=id,stok,master_barang(kode_barang,nama_barang,satuan),warehouses(nama_gudang)'),api('stock_openings?select=request_id,qty,tanggal,catatan,master_barang(kode_barang,nama_barang),warehouses(nama_gudang)&order=created_at.desc&limit=100')]);
+ const results=await Promise.allSettled([stockAll('stocks?select=id,stok,master_barang(kode_barang,nama_barang,satuan),warehouses(nama_gudang)'),erpRole==='admin'?Promise.resolve([]):api('stock_openings?select=request_id,qty,tanggal,catatan,master_barang(kode_barang,nama_barang),warehouses(nama_gudang)&order=created_at.desc&limit=100')]);
  if(generation!==stockGeneration)return;
  if(results[0].status==='fulfilled'){const rows=results[0].value;target.innerHTML=rows.length?`<table><thead><tr><th>Kode</th><th>Barang</th><th>Gudang</th><th>Stok</th><th>Satuan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)}</td><td>${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.stok)}</td><td>${esc(x.master_barang?.satuan||'')}</td></tr>`).join('')}</tbody></table>`:'Belum ada stok gudang.';}else target.textContent='Stok belum dapat dimuat: '+results[0].reason.message;
  if(results[1].status==='fulfilled'){const rows=results[1].value;history.innerHTML=rows.length?`<table><thead><tr><th>Tanggal</th><th>Barang</th><th>Gudang</th><th>Jumlah Awal</th><th>Catatan</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.tanggal)}</td><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(x.qty)}</td><td>${esc(x.catatan)}</td></tr>`).join('')}</tbody></table><p class="small">Maksimal 100 pencatatan terbaru milik akun ini.</p>`:'Belum ada pencatatan stok awal oleh akun ini.';}else history.textContent='Riwayat belum dapat dimuat: '+results[1].reason.message;
@@ -1433,7 +1490,7 @@ async function openSale() {
  const button=document.getElementById('newSale');button.disabled=true;
  try {
   const [barang,customers,warehouses,accounts,stocks]=await Promise.all([
-   api('master_barang?select=id,kode_barang,nama_barang,harga_jual,harga_modern,harga_beli&status_aktif=eq.true&order=nama_barang'),
+   api('master_barang?select=id,kode_barang,nama_barang,harga_jual,harga_modern&status_aktif=eq.true&order=nama_barang'),
    api('customers?select=id,nama_customer,tipe_customer,jatuh_tempo_hari&status_aktif=eq.true&order=nama_customer'),
    api('warehouses?select=id,nama_gudang&status_aktif=eq.true&order=nama_gudang'),
    api('cash_accounts?select=id,name,account_type&active=eq.true&order=name'),
