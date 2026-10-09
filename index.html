@@ -351,7 +351,14 @@
 <p id="saleError" role="alert" class="login-error"></p>
 <div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('saleDialog').close()">Batal</button><button id="saveSale" class="btn" type="submit">Simpan &amp; Keluarkan Barang</button></div>
 </form></dialog>
-<dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button id="saleInvoice" class="btn" disabled onclick="printSaleInvoice()">Cetak Invoice / PDF</button><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
+<dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button id="saleCancel" class="btn secondary" hidden onclick="openSaleCancellation()">Batalkan Penjualan</button><button id="saleInvoice" class="btn" disabled onclick="printSaleInvoice()">Cetak Invoice / PDF</button><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
+<dialog id="cancelSaleDialog"><form class="modal" id="cancelSaleForm"><h3>Batalkan Penjualan</h3>
+<p id="cancelSaleSummary"></p><p>Stok barang akan dikembalikan dan tagihan yang belum dibayar dibatalkan. Transaksi tetap tersimpan dalam riwayat dan tidak dihitung dalam laporan penjualan.</p>
+<p>Hanya untuk penjualan Tempo yang belum dibayar. Pastikan barang belum dikirim atau sudah diterima kembali di gudang.</p>
+<label>Alasan pembatalan<textarea class="input" id="cancelSaleReason" required minlength="5" maxlength="1000" rows="3" placeholder="Contoh: transaksi percobaan atau salah memasukkan pesanan"></textarea></label>
+<label style="display:block;margin-top:12px"><input type="checkbox" required> Saya memastikan pembatalan ini benar dan stok boleh dikembalikan.</label>
+<p id="cancelSaleError" role="status"></p><div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('cancelSaleDialog').close()">Kembali</button><button type="submit" class="btn">Ya, Batalkan Penjualan</button></div>
+</form></dialog>
 <dialog id="expenseDialog"><form id="expenseForm" class="modal"><h3>Catat Biaya Operasional</h3><div class="form-grid"><label>Tanggal<input name="tanggal" class="input" type="date" required></label><label>Kategori<select name="kategori" class="input"><option>Ongkir</option><option>Gaji</option><option>Sewa</option><option>Listrik &amp; Air</option><option>Iklan</option><option>Lainnya</option></select></label><label class="full">Keterangan<input name="catatan" class="input" required maxlength="500" placeholder="Contoh: Ongkir invoice mener"></label><label>Nominal biaya (Rp)<input name="jumlah" class="input" type="number" min="0.01" max="1000000000000" step="0.01" required></label><label>Dibayar dari<select name="account" class="input" required></select></label></div><p class="small">Menyimpan biaya ini mencatat uang keluar dari rekening yang dipilih. PPN masukan yang bisa dikreditkan tidak termasuk biaya.</p><p id="expenseError" role="alert"></p><div class="modal-actions"><button type="button" class="btn secondary" onclick="document.getElementById('expenseDialog').close()">Batal</button><button class="btn" type="submit">Simpan Biaya</button></div></form></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.99.3/dist/umd/supabase.min.js"
   integrity="sha384-4bKASEcnXfYfA/rrhF9qD3mYowkb5k4Xbzbrf3ccqgZrplKUrwnA2Q/L5xcdZFAp"
@@ -397,7 +404,7 @@ async function resolveAccess(session){
   // Remove values retained from another account before loading this role's data.
   for(const id of ['barangTable','saleTable','stockTable','salaryHistory','latestSales','reportSales','reportPurchases','reportCash','profitSummary','saleDetailContent','accountCards','purchaseTable','payableTable','payableHistory','cashHistory'])document.getElementById(id)?.replaceChildren();
   for(const f of document.querySelectorAll('form'))if(f.id!=='loginForm')f.reset();
-  saleMaster={barang:[],customers:[],warehouses:[],accounts:[],stocks:[]};reportData=null;invoiceSaleId=null;
+  saleMaster={barang:[],customers:[],warehouses:[],accounts:[],stocks:[]};reportData=null;invoiceSaleId=null;saleDetailGeneration++;resetSaleCancellation();
   document.querySelector('.menu button[data-page="dashboard"]').click();
   await Promise.allSettled([loadDashboard(),loadLatestSales()]);
  }catch(e){if(generation!==roleGeneration)return;document.getElementById('erpApp').classList.add('hidden');document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('loginError').textContent=e.message;}
@@ -483,7 +490,7 @@ document.getElementById('salaryNew').onclick=()=>{if(confirm('Buka slip baru? Pa
 document.getElementById('salaryReload').onclick=()=>loadSalaryHistory().catch(e=>document.getElementById('salaryAccessMessage').textContent=e.message);
 
 function setAuthView(session) {
-  if(authSession?.user?.id!==session?.user?.id)erpRole=null;
+  if(authSession?.user?.id!==session?.user?.id){erpRole=null;saleDetailGeneration++;resetSaleCancellation();document.getElementById('saleDetail').close();document.getElementById('cancelSaleDialog').close();}
   authSession = session;
   refreshPayrollPreviewAccess(session);
   const signedIn = Boolean(session?.user);
@@ -1412,27 +1419,75 @@ async function loadSales() {
 async function loadLatestSales() {
  const target=document.getElementById('latestSales');
  try {
-  const rows=await api('sales?select=nomor_penjualan,tanggal,grand_total,customers(nama_customer)&order=id.desc&limit=5');
+  const rows=await api('sales?select=nomor_penjualan,tanggal,grand_total,customers(nama_customer)&status=eq.Selesai&order=id.desc&limit=5');
   target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Customer</th><th>Total</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(rupiah(x.grand_total))}</td></tr>`).join('')}</tbody></table>`:'Belum ada transaksi penjualan.';
  } catch(e) {target.textContent='Penjualan belum dapat dibaca: '+e.message;}
 }
 let invoiceSaleId=null;
 let saleDetailGeneration=0;
+let cancelSaleContext=null,cancelSalePending=false;
+function resetSaleCancellation(){
+ cancelSaleContext=null;
+ document.getElementById('saleCancel').hidden=true;
+ if(!cancelSalePending)document.getElementById('cancelSaleDialog').close();
+}
+function openSaleCancellation(){
+ if(cancelSalePending||!['owner','ceo'].includes(erpRole)||!cancelSaleContext)return;
+ const c=cancelSaleContext;
+ document.getElementById('cancelSaleForm').reset();
+ document.getElementById('cancelSaleError').textContent='';
+ document.getElementById('cancelSaleSummary').textContent=c.number+' · '+rupiah(c.total);
+ document.getElementById('cancelSaleDialog').showModal();
+ document.getElementById('cancelSaleReason').focus();
+}
+document.getElementById('cancelSaleDialog').addEventListener('cancel',e=>{if(cancelSalePending)e.preventDefault();});
+document.getElementById('cancelSaleForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ if(cancelSalePending)return;
+ const c=cancelSaleContext,error=document.getElementById('cancelSaleError');
+ if(!['owner','ceo'].includes(erpRole)||!c){error.textContent='Masuk sebagai Owner atau CEO dan buka ulang detail transaksi.';return;}
+ const reason=document.getElementById('cancelSaleReason').value.trim();
+ if(reason.length<5||reason.length>1000){error.textContent='Isi alasan pembatalan 5–1000 karakter.';return;}
+ const account=authSession?.user?.id;
+ const controls=[...document.getElementById('cancelSaleForm').querySelectorAll('button,textarea')];
+ cancelSalePending=true;controls.forEach(x=>x.disabled=true);error.textContent='Memproses pembatalan…';
+ try{
+  const result=await api('rpc/hanyojo_cancel_sale',{p_sale:Number(c.id),p_reason:reason});
+  if(String(result?.sales_id)!==String(c.id)||result.status!=='Dibatalkan')throw Error('Hasil pembatalan belum terkonfirmasi.');
+  if(authSession?.user?.id!==account)return;
+  adminDataPromise=null;cancelSaleContext=null;invoiceSaleId=null;saleDetailGeneration++;
+  document.getElementById('cancelSaleDialog').close();document.getElementById('saleDetail').close();
+  document.getElementById('saleCancel').hidden=true;
+  await Promise.allSettled([loadSales(),loadStocks(),loadLatestSales(),loadDashboard()]);
+  reportData=null;document.getElementById('reportResult').classList.add('hidden');
+  document.getElementById('reportPrint').disabled=true;document.getElementById('reportCsv').disabled=true;
+  showMessage(result.already_cancelled?'Transaksi sudah dibatalkan. Stok tidak ditambahkan lagi.':'Penjualan dibatalkan. Stok dikembalikan dan tagihan yang belum dibayar dibatalkan.');
+ }catch(err){
+  if(authSession?.user?.id===account)error.textContent=err.message+' Jika koneksi terputus, tutup dan muat ulang Penjualan untuk memeriksa status. Percobaan ulang tidak menggandakan stok.';
+ }finally{cancelSalePending=false;controls.forEach(x=>x.disabled=false);}
+});
+
 async function showSaleDetail(id) {
  const generation=++saleDetailGeneration;
+ resetSaleCancellation();
  invoiceSaleId=null;document.getElementById('saleInvoice').disabled=true;
  try {
   const [rows,sales,receivables]=await Promise.all([
    api('sales_items?select=*,master_barang(kode_barang,nama_barang)&sales_id=eq.'+encodeURIComponent(id)),
-   api('sales?select=nomor_penjualan,metode_pembayaran,jatuh_tempo,catatan,subtotal,diskon_total,ongkir,ppn_total,grand_total,ppn_included,admin_total,channel,harga_tipe,cash_accounts(name)&id=eq.'+encodeURIComponent(id)),
+   api('sales?select=status,nomor_penjualan,metode_pembayaran,jatuh_tempo,catatan,subtotal,diskon_total,ongkir,ppn_total,grand_total,ppn_included,admin_total,channel,harga_tipe,cash_accounts(name)&id=eq.'+encodeURIComponent(id)),
    api('receivables?select=total,paid,due_date,status&sales_id=eq.'+encodeURIComponent(id))
   ]);
   if(generation!==saleDetailGeneration)return;
   const sale=sales[0],r=receivables[0];
   if(!sale) throw new Error('Penjualan tidak ditemukan.');
-  document.getElementById('saleDetailContent').innerHTML=`<p>${esc(sale.nomor_penjualan)} · ${esc(sale.metode_pembayaran)}</p><p class="small">${esc(sale.catatan)}</p><table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.qty)}</td><td>${esc(rupiah(x.harga))}</td><td>${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table><p>Diskon: ${esc(rupiah(sale.diskon_total))} · Ongkir: ${esc(rupiah(sale.ongkir))} · PPN${sale.ppn_included?' (termasuk)':''}: ${esc(rupiah(sale.ppn_total))}</p><p><strong>Total: ${esc(rupiah(sale.grand_total))}</strong></p><p>Harga: ${esc(sale.harga_tipe||'Retail')} · Saluran: ${esc(sale.channel||'Langsung')} · Biaya admin perusahaan: ${esc(rupiah(sale.admin_total||0))}</p>${sale.metode_pembayaran!=='Tempo'?`<p>Uang diterima setelah admin: <strong>${esc(rupiah(Number(sale.grand_total)-Number(sale.admin_total||0)))}</strong></p>`:''}${r?`<p>Sisa piutang: <strong>${esc(rupiah(Number(r.total)-Number(r.paid)))}</strong> · Jatuh tempo: ${esc(r.due_date)} · ${esc(r.status)}</p>`:sale.cash_accounts?`<p>Rekening penerima: ${esc(sale.cash_accounts.name)}</p>`:''}`;
+  document.getElementById('saleDetailContent').innerHTML=`<p>${esc(sale.nomor_penjualan)} · ${esc(sale.metode_pembayaran)} · ${esc(sale.status)}</p><p class="small">${esc(sale.catatan)}</p><table><thead><tr><th>Barang</th><th>Jumlah</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.master_barang?.kode_barang)} — ${esc(x.master_barang?.nama_barang)}</td><td>${esc(x.qty)}</td><td>${esc(rupiah(x.harga))}</td><td>${esc(rupiah(x.subtotal))}</td></tr>`).join('')}</tbody></table><p>Diskon: ${esc(rupiah(sale.diskon_total))} · Ongkir: ${esc(rupiah(sale.ongkir))} · PPN${sale.ppn_included?' (termasuk)':''}: ${esc(rupiah(sale.ppn_total))}</p><p><strong>Total: ${esc(rupiah(sale.grand_total))}</strong></p><p>Harga: ${esc(sale.harga_tipe||'Retail')} · Saluran: ${esc(sale.channel||'Langsung')} · Biaya admin perusahaan: ${esc(rupiah(sale.admin_total||0))}</p>${sale.metode_pembayaran!=='Tempo'?`<p>Uang diterima setelah admin: <strong>${esc(rupiah(Number(sale.grand_total)-Number(sale.admin_total||0)))}</strong></p>`:''}${r?`<p>Sisa piutang: <strong>${esc(rupiah(Number(r.total)-Number(r.paid)))}</strong> · Jatuh tempo: ${esc(r.due_date)} · ${esc(r.status)}</p>`:sale.cash_accounts?`<p>Rekening penerima: ${esc(sale.cash_accounts.name)}</p>`:''}`;
   if(generation!==saleDetailGeneration)return;
-  invoiceSaleId=id;document.getElementById('saleInvoice').disabled=false;
+  invoiceSaleId=sale.status==='Selesai'?id:null;document.getElementById('saleInvoice').disabled=sale.status!=='Selesai';
+  const canCancel=['owner','ceo'].includes(erpRole)&&sale.status==='Selesai'&&sale.metode_pembayaran==='Tempo'&&r&&Number(r.paid)===0;
+  cancelSaleContext=canCancel?{id,number:sale.nomor_penjualan,total:sale.grand_total}:null;
+  document.getElementById('saleCancel').hidden=!canCancel;
+  if(sale.status==='Dibatalkan')document.getElementById('saleDetailContent').insertAdjacentHTML('beforeend','<p><strong>Transaksi dibatalkan. Nilai di atas adalah nilai asli untuk riwayat; tidak menjadi tagihan atau penjualan aktif.</strong></p>');
+  else if(['owner','ceo'].includes(erpRole)&&!canCancel)document.getElementById('saleDetailContent').insertAdjacentHTML('beforeend','<p class="small">Transaksi dengan pembayaran memerlukan proses pengembalian dana.</p>');
   document.getElementById('saleDetail').showModal();
  } catch(e) {showMessage(e.message);}
 }
