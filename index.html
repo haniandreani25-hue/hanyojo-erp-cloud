@@ -504,8 +504,7 @@ document.getElementById('salaryNew').onclick=()=>{if(confirm('Buka slip baru? Pa
 document.getElementById('salaryReload').onclick=()=>loadSalaryHistory().catch(e=>document.getElementById('salaryAccessMessage').textContent=e.message);
 
 function setAuthView(session) {
- if(!session)resetCorrections();resetOrders();resetConsignments();
-  if(authSession?.user?.id!==session?.user?.id){erpRole=null;saleDetailGeneration++;resetSaleCancellation();document.getElementById('saleDetail').close();document.getElementById('cancelSaleDialog').close();}
+ if(authSession?.user?.id!==session?.user?.id){resetCorrections();resetOrders();resetConsignments();erpRole=null;saleDetailGeneration++;resetSaleCancellation();document.getElementById('saleDetail').close();document.getElementById('cancelSaleDialog').close();}
   authSession = session;
   refreshPayrollPreviewAccess(session);
   const signedIn = Boolean(session?.user);
@@ -559,16 +558,21 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   button.textContent = "Memeriksa…";
   errorBox.textContent = "";
 
-  const { error } = await client.auth.signInWithPassword({
-    email: document.getElementById("loginEmail").value.trim(),
-    password: document.getElementById("loginPassword").value
-  });
-
-  if (error) {
-    errorBox.textContent = "Email atau kata sandi tidak sesuai.";
+  try {
+    const { data, error } = await client.auth.signInWithPassword({
+      email: document.getElementById("loginEmail").value.trim(),
+      password: document.getElementById("loginPassword").value
+    });
+    if (error) throw error;
+    if (data?.session) setAuthView(data.session);
+  } catch (error) {
+    errorBox.textContent = error.code === 'invalid_credentials'
+      ? "Email atau kata sandi tidak sesuai."
+      : "Login belum bisa diproses: " + (error.message || "Coba muat ulang halaman.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Masuk";
   }
-  button.disabled = false;
-  button.textContent = "Masuk";
 });
 
 async function logout() {
@@ -1772,7 +1776,6 @@ function downloadReportCsv(){if(!reportData)return;const d=reportData;const rows
 document.getElementById('reportForm').addEventListener('submit',event=>{event.preventDefault();loadReports();});
 ['reportStart','reportEnd'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{reportGeneration++;reportData=null;document.getElementById('reportResult').classList.add('hidden');document.getElementById('reportPrint').disabled=true;document.getElementById('reportCsv').disabled=true;document.getElementById('reportMessage').textContent='Klik Tampilkan untuk periode yang dipilih.';}));
 
-initAuth();
 </script>
 <script>
 // Owner/CEO correction hub. Source records remain in history.
@@ -1917,6 +1920,10 @@ function consignmentPrintHtml(o){const p=o.payload,c=invoiceCompany;return '<!do
 function printConsignment(id){const o=consRows.find(x=>x.id===id);if(!o||!['owner','ceo','admin'].includes(erpRole))return;const w=window.open('','_blank');if(!w){showMessage('Izinkan pop-up untuk mencetak faktur.');return;}w.opener=null;w.document.write(consignmentPrintHtml(o));w.document.close();}
 for(const id of ['consFormDialog','consActionDialog'])document.getElementById(id).addEventListener('cancel',e=>{if(consPending)e.preventDefault();});
 
+</script>
+<script>
+function startERPAuth(){initAuth().catch(e=>{document.getElementById('loginError').textContent='Halaman masuk belum dapat dimuat: '+e.message;});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startERPAuth,{once:true});else startERPAuth();
 </script>
 </body>
 </html>
