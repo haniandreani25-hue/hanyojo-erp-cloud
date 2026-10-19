@@ -1619,14 +1619,14 @@ function hanyojoFakturLayout(d){
 }
 function saleInvoiceHtml(d){
  const s=d.sale,c=s.customers||{},rows=invoiceDiscountRows(d.rows,d.discount);
- const summary=[['Subtotal',d.subtotal-d.discount,false]];
+ const summary=[['Subtotal sebelum diskon transaksi',d.subtotal,false],['Diskon transaksi',-d.discount,false],['Subtotal setelah diskon',d.subtotal-d.discount,false]];
  if(d.shipping)summary.push(['Ongkir',d.shipping,false]);
  if(!s.ppn_included&&d.tax)summary.push(['PPN',d.tax,false]);
  summary.push(['Total',d.total,true]);
  if(d.paid>0){summary.push(['Sudah dibayar',d.paid,false],['Sisa tagihan',d.balance,true]);}
  const notes=[s.catatan||'',d.balance>0?'Pembayaran: '+invoiceCompany.bank+' '+invoiceCompany.account+' — '+invoiceCompany.holder:''].filter(Boolean).join('\n');
  return hanyojoFakturLayout({kind:'Faktur Tagihan',number:s.nomor_penjualan,date:s.tanggal,customer:c.nama_customer,store:c.nama_toko,address:d.po?.address||c.alamat,phone:c.nomor_hp,po:d.po?.po_number,due:s.metode_pembayaran==='Tempo'?d.due:null,status:d.balance===0?'Lunas':d.paid>0?'Dibayar sebagian':'Belum lunas',
- items:rows.map(x=>({name:x.master_barang?.nama_barang||'Barang',qty:x.qty,unit:x.master_barang?.satuan,price:x.harga,discount:x.transactionDiscount>0?x.transactionRate:Number(x.diskon)>0?invoiceMoney(x.diskon):'0%',discountNote:Number(x.diskon)>0&&x.transactionDiscount>0?'Diskon barang '+invoiceMoney(x.diskon):'',total:x.afterDiscount})),
+ items:rows.map(x=>({name:x.master_barang?.nama_barang||'Barang',qty:x.qty,unit:x.master_barang?.satuan,price:x.harga,discount:x.transactionDiscount>0?x.transactionRate:Number(x.diskon)>0?invoiceMoney(x.diskon):'0%',discountNote:[x.transactionDiscount>0?'Diskon transaksi '+invoiceMoney(x.transactionDiscount):'',Number(x.diskon)>0&&x.transactionDiscount>0?'Diskon barang '+invoiceMoney(x.diskon):''].filter(Boolean).join(' · '),total:x.afterDiscount})),
  taxNote:s.ppn_included?'Harga sudah termasuk PPN':Number(d.tax)>0?'Harga belum termasuk PPN':'Non-PPN',summary,notes,signer:'INA SYLVIANI AMANDA'});
 }
 
@@ -1992,7 +1992,10 @@ function openConsAction(id,kind){if(consPending)return;const o=consRows.find(x=>
 document.getElementById('consActionForm').addEventListener('submit',async e=>{e.preventDefault();if(consPending)return;const f=e.currentTarget;if(!f.reportValidity())return;const data={date:f.elements.date.value,notes:f.elements.notes.value.trim(),confirmed:f.elements.confirmed.checked};if(consActionKind==='sold'){data.report=f.elements.report.value.trim();data.due=f.elements.due.value;}if(['sold','return'].includes(consActionKind)){data.items=[...document.querySelectorAll('.cons-action-qty')].map(el=>({barang_id:Number(el.dataset.barang),qty:Number(el.value)})).filter(x=>x.qty>0);if(!data.items.length){document.getElementById('consActionError').textContent='Isi minimal satu jumlah lebih dari nol.';return;}}consPending=true;document.getElementById('consActionSave').disabled=true;const actor=authSession?.user?.id;try{const r=await accessRpc('hanyojo_consignment_action',{p_id:consFormId,p_request:consRequest,p_kind:consActionKind,p_revision:consRevision,p_data:data});if(actor!==authSession?.user?.id)return;adminDataPromise=null;document.getElementById('consActionDialog').close();await loadConsignments();showMessage(r.sales_id?'Laporan terjual dan tagihan tersimpan. Lihat Penjualan serta Kas & Bank.':'Tindakan tersimpan. Riwayat tetap tersedia.');}catch(e){document.getElementById('consActionError').textContent=e.message;}finally{consPending=false;document.getElementById('consActionSave').disabled=false;}});
 function viewConsignment(id){const o=consRows.find(x=>x.id===id);if(!o)return;const d=document.getElementById('consDetailContent');d.innerHTML='<p><strong>Faktur '+esc(o.number)+'</strong> · '+esc(o.status)+'<br>'+esc(o.payload.customer_name)+'<br>Gudang pengirim: '+esc(o.payload.warehouse_name)+'</p><table><tr><th>Barang</th><th>Dititipkan</th><th>Sisa di toko</th></tr>'+o.payload.items.map(x=>'<tr><td>'+esc(x.code)+' — '+esc(x.name)+'</td><td>'+esc(x.qty)+'</td><td>'+esc(o.remaining.find(r=>String(r.barang_id)===String(x.barang_id))?.qty||0)+'</td></tr>').join('')+'</table><h4>Riwayat</h4>'+o.history.map(x=>'<p>'+esc(({save:'Simpan / edit draf',dispatch:'Barang dititipkan',return:'Barang kembali',sold:'Laporan terjual',cancel:'Draf dibatalkan'})[x.kind])+' · '+esc(x.effective_date||new Date(x.date).toLocaleString('id-ID'))+'<br>'+esc(x.report||x.reason||'')+(x.sales_id?'<br>Penjualan '+esc(x.sale_number)+' · '+esc(x.sale_status):'')+'</p>').join('')+'<button class="btn secondary" id="consDetailPrint">Cetak Faktur</button>';document.getElementById('consDetailPrint').onclick=()=>printConsignment(id);document.getElementById('consDetailDialog').showModal();}
 function consignmentPrintHtml(o){
- const p=o.payload,summary=[['Subtotal',Number(p.subtotal),false]];
+ const p=o.payload;
+ const gross=p.items.reduce((n,x)=>n+Math.round(Number(x.qty)*Number(x.price)*100),0)/100;
+ const discount=Math.round((gross-Number(p.subtotal))*100)/100;
+ const summary=[['Subtotal sebelum diskon',gross,false],['Diskon barang',-discount,false],['Subtotal setelah diskon',Number(p.subtotal),false]];
  if(p.tax==='exclude')summary.push(['PPN',Number(p.total)-Number(p.subtotal),false]);
  summary.push(['Total',Number(p.total),true]);
  return hanyojoFakturLayout({kind:'Faktur Konsinyasi',number:o.number,date:p.date,customer:p.customer_name,address:p.address||p.customer_address,phone:p.customer_phone,status:o.status==='Draf'||o.status==='Dibatalkan'?o.status:'',
