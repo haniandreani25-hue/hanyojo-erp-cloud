@@ -366,7 +366,7 @@
 </form></dialog>
 <dialog id="consFormDialog"><form id="consForm" class="modal"><h3>Tambah Faktur Konsinyasi</h3><div class="form-grid"><label>Jenis faktur<select name="invoice_kind" class="input" onchange="switchInvoiceKind(this)"><option value="billing">Faktur Tagihan</option><option value="consignment" selected>Faktur Konsinyasi</option></select></label><label>Pengeluaran stok<select name="stock_mode" class="input" onchange="updateInvoiceStock(this.form)"><option value="out">Stok keluar</option><option value="none">Tidak keluar stok — sudah dicatat sebelumnya</option></select></label><label class="full" data-stock-reference hidden>Keterangan pengeluaran stok sebelumnya<input name="stock_reference" class="input" minlength="5" maxlength="300" placeholder="Contoh: nomor surat jalan atau keterangan pengeluaran sebelumnya"></label><p class="small full" data-stock-note></p><label>Nomor faktur (isi sendiri)<input class="input" name="number" maxlength="80" required></label><label>Tanggal faktur<input class="input" name="date" type="date" required></label><label>Customer / Toko<select class="input" name="customer" required></select></label><label>Gudang pengirim<select class="input" name="warehouse" required></select></label><label class="full">Alamat kirim (opsional)<textarea class="input" name="address" maxlength="1000"></textarea></label></div><div class="table-wrap"><table><thead><tr><th>Barang / Batch / ED</th><th>Jumlah</th><th>Harga satuan</th><th>Diskon per satuan</th><th>Jumlah setelah diskon</th><th></th></tr></thead><tbody id="consLines"></tbody></table></div><button type="button" class="btn secondary" onclick="addConsLine()">+ Baris Barang</button><label>PPN<select class="input" name="tax" onchange="updateConsTotal()"><option value="include">Harga termasuk PPN</option><option value="exclude">PPN ditambahkan</option><option value="non">Non-PPN</option></select></label><label>Catatan<textarea class="input" name="notes" maxlength="2000"></textarea></label><label>Nama pengesah pada cetakan<input class="input" name="signer" maxlength="120"></label><label id="consReason" hidden>Alasan perubahan<input class="input" name="reason" minlength="5" maxlength="1000"></label><p>Total nilai titipan: <strong id="consTotal"></strong></p><p>Draf ini belum mengubah stok, penjualan, tagihan, atau uang.</p><p id="consError" class="error"></p><div class="actions"><button type="button" class="btn secondary" onclick="if(!consPending)document.getElementById('consFormDialog').close()">Tutup</button><button class="btn" id="consSave">Simpan Draf</button></div></form></dialog>
 <dialog id="consActionDialog"><form id="consActionForm" class="modal"><h3></h3><p id="consActionNote"></p><label>Tanggal<input class="input" type="date" name="date" required></label><div id="consReportFields"><label>Nomor laporan dari toko<input class="input" name="report" maxlength="120"></label><label>Jatuh tempo tagihan<input class="input" name="due" type="date"></label></div><div id="consActionLines" class="table-wrap"></div><label>Catatan / Alasan<textarea class="input" name="notes" maxlength="1000" minlength="5"></textarea></label><label id="consConfirmLabel"><input type="checkbox" name="confirmed"> <span id="consConfirmText"></span></label><p id="consActionError" class="error"></p><div class="actions"><button class="btn secondary" type="button" onclick="if(!consPending)document.getElementById('consActionDialog').close()">Tutup</button><button class="btn" id="consActionSave">Simpan</button></div></form></dialog>
-<dialog id="consDetailDialog"><div class="modal"><h3>Detail Konsinyasi</h3><div id="consDetailContent"></div><button class="btn secondary" onclick="document.getElementById('consDetailDialog').close()">Tutup</button></div></dialog><dialog id="orderDetail"><div class="modal"><h3>Detail Pesanan</h3><div id="orderDetailContent"></div><button class="btn secondary" onclick="document.getElementById('orderDetail').close()">Tutup</button></div></dialog><dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button id="saleCancel" class="btn secondary" hidden onclick="openSaleCancellation()">Batalkan Penjualan</button><button id="saleDelivery" class="btn secondary" disabled onclick="printDeliveryNote()">Cetak Surat Jalan</button><button id="saleInvoice" class="btn" disabled onclick="printSaleInvoice()">Cetak Invoice / PDF</button><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
+<dialog id="consDetailDialog"><div class="modal"><h3>Detail Konsinyasi</h3><div id="consDetailContent"></div><button class="btn secondary" onclick="document.getElementById('consDetailDialog').close()">Tutup</button></div></dialog><dialog id="orderDetail"><div class="modal"><h3>Detail Pesanan</h3><div id="orderDetailContent"></div><button class="btn secondary" onclick="document.getElementById('orderDetail').close()">Tutup</button></div></dialog><dialog id="saleDetail"><div class="modal"><h3>Detail Penjualan</h3><div id="saleDetailContent" class="table-wrap"></div><div class="modal-actions"><button id="saleCancel" class="btn secondary" hidden onclick="openSaleCancellation()">Batal Faktur</button><button id="saleDelivery" class="btn secondary" disabled onclick="printDeliveryNote()">Cetak Surat Jalan</button><button id="saleInvoice" class="btn" disabled onclick="printSaleInvoice()">Cetak Invoice / PDF</button><button class="btn secondary" onclick="document.getElementById('saleDetail').close()">Tutup</button></div></div></dialog>
 <dialog id="cancelSaleDialog"><form class="modal" id="cancelSaleForm"><h3>Batalkan Penjualan</h3><p class="small">Faktur tanpa pengeluaran stok hanya membatalkan tagihan; tidak menambah stok. Catat penerimaan barang fisik secara terpisah.</p>
 <p id="cancelSaleSummary"></p><p>Stok barang akan dikembalikan dan tagihan yang belum dibayar dibatalkan. Transaksi tetap tersimpan dalam riwayat dan tidak dihitung dalam laporan penjualan.</p>
 <p>Hanya untuk penjualan Tempo yang belum dibayar. Pastikan barang belum dikirim atau sudah diterima kembali di gudang.</p>
@@ -1393,8 +1393,10 @@ async function loadSales() {
  const target=document.getElementById('saleTable'); target.textContent='Memuat penjualan…';
  try {
   const rows=await api('sales?select=*,customers(nama_customer),warehouses(nama_gudang)&order=id.desc&limit=100');
-  target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Tanggal</th><th>Customer</th><th>Gudang</th><th>Total</th><th>Pembayaran</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.tanggal)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(rupiah(x.grand_total))}</td><td>${esc(x.metode_pembayaran)}</td><td>${esc(x.status)}</td><td><button class="btn secondary sale-detail" data-id="${esc(x.id)}">Detail</button></td></tr>`).join('')}</tbody></table><p class="small">Menampilkan maksimal 100 penjualan terbaru.</p>`:'Belum ada transaksi penjualan.';
+  target.innerHTML=rows.length?`<table><thead><tr><th>Nomor</th><th>Tanggal</th><th>Customer</th><th>Gudang</th><th>Total</th><th>Pembayaran</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.nomor_penjualan)}</td><td>${esc(x.tanggal)}</td><td>${esc(x.customers?.nama_customer)}</td><td>${esc(x.warehouses?.nama_gudang)}</td><td>${esc(rupiah(x.grand_total))}</td><td>${esc(x.metode_pembayaran)}</td><td>${esc(x.status)}</td><td><button class="btn secondary sale-detail" data-id="${esc(x.id)}">Detail</button> <button class="btn secondary sale-edit" data-id="${esc(x.id)}" ${x.status==='Selesai'&&x.metode_pembayaran==='Tempo'&&['owner','ceo'].includes(erpRole)?'':'disabled'}>Edit</button> <button class="btn danger sale-cancel" data-id="${esc(x.id)}" ${x.status==='Selesai'&&x.metode_pembayaran==='Tempo'&&['owner','ceo'].includes(erpRole)?'':'disabled'}>Batal</button></td></tr>`).join('')}</tbody></table><p class="small">Menampilkan maksimal 100 penjualan terbaru.</p>`:'Belum ada transaksi penjualan.';
   target.querySelectorAll('.sale-detail').forEach(b=>b.onclick=()=>showSaleDetail(b.dataset.id));
+  target.querySelectorAll('.sale-edit').forEach(b=>b.onclick=()=>openInvoiceRevision(b.dataset.id));
+  target.querySelectorAll('.sale-cancel').forEach(b=>b.onclick=async()=>{await showSaleDetail(b.dataset.id);if(cancelSaleContext)openSaleCancellation();else showMessage('Faktur ini belum dapat dibatalkan. Periksa pembayaran atau asal konsinyasinya.');});
  } catch(e) {target.textContent='Penjualan belum dapat dibaca: '+e.message;}
 }
 async function loadLatestSales() {
@@ -1442,7 +1444,7 @@ document.getElementById('cancelSaleForm').addEventListener('submit',async e=>{
   await Promise.allSettled([loadSales(),loadStocks(),loadLatestSales(),loadDashboard()]);
   reportData=null;document.getElementById('reportResult').classList.add('hidden');
   document.getElementById('reportPrint').disabled=true;document.getElementById('reportCsv').disabled=true;
-  showMessage(result.already_cancelled?'Transaksi sudah dibatalkan. Stok tidak ditambahkan lagi.':'Penjualan dibatalkan. Stok dikembalikan dan tagihan yang belum dibayar dibatalkan.');
+  showMessage(result.already_cancelled?'Transaksi sudah dibatalkan. Stok tidak ditambahkan lagi.':(result.stock_returned===false?'Faktur dibatalkan. Stok tidak berubah dan tagihan dibatalkan.':'Faktur dibatalkan. Stok dikembalikan dan tagihan dibatalkan.'));
  }catch(err){
   if(authSession?.user?.id===account)error.textContent=err.message+' Jika koneksi terputus, tutup dan muat ulang Penjualan untuk memeriksa status. Percobaan ulang tidak menggandakan stok.';
  }finally{cancelSalePending=false;controls.forEach(x=>x.disabled=false);}
@@ -1468,9 +1470,10 @@ async function showSaleDetail(id) {
   document.getElementById('saleDelivery').disabled=sale.status!=='Selesai';
   if(generation!==saleDetailGeneration)return;
   invoiceSaleId=sale.status==='Selesai'?id:null;document.getElementById('saleInvoice').disabled=sale.status!=='Selesai';
-  const canCancel=['owner','ceo'].includes(erpRole)&&sale.status==='Selesai'&&sale.metode_pembayaran==='Tempo'&&r&&Number(r.paid)===0;
+  const canCancel=['owner','ceo'].includes(erpRole)&&sale.status==='Selesai'&&sale.metode_pembayaran==='Tempo'&&r&&Number(r.paid)===0&&!po.consignment_number;
   cancelSaleContext=canCancel?{id,number:sale.nomor_penjualan,total:sale.grand_total}:null;
   document.getElementById('saleCancel').hidden=!canCancel;
+  if(canCancel){document.getElementById('saleDetailContent').insertAdjacentHTML('beforeend','<button type="button" class="btn secondary" id="saleEditInvoice">Edit Faktur</button>');document.getElementById('saleEditInvoice').onclick=()=>openInvoiceRevision(id);}
   if(sale.status==='Dibatalkan')document.getElementById('saleDetailContent').insertAdjacentHTML('beforeend','<p><strong>Transaksi dibatalkan. Nilai di atas adalah nilai asli untuk riwayat; tidak menjadi tagihan atau penjualan aktif.</strong></p>');
   else if(['owner','ceo'].includes(erpRole)&&!canCancel)document.getElementById('saleDetailContent').insertAdjacentHTML('beforeend','<p class="small">Transaksi dengan pembayaran memerlukan proses pengembalian dana.</p>');
   document.getElementById('saleDetail').showModal();
@@ -1685,22 +1688,23 @@ document.getElementById('saleForm').addEventListener('submit',async e=>{
  if(form.elements.metode.value==='Tempo'&&Number(form.elements.admin_value.value)>0){error.textContent='Potongan admin dicatat saat pembayaran diterima. Pilih Transfer setelah dana marketplace dicairkan, atau isi biaya admin nol untuk penjualan tempo.';return;}
  if(!items.length||items.some(x=>!x.barang_id||!Number.isFinite(x.qty)||x.qty<=0||!Number.isFinite(x.harga)||x.harga<0)){error.textContent='Isi minimal satu barang dengan jumlah dan harga yang valid.';return;}
  const totals=new Map();items.forEach(x=>totals.set(x.barang_id,(totals.get(x.barang_id)||0)+x.qty));
- for(const [id,qty]of totals)if(!['create','edit'].includes(orderMode)&&!(orderMode==='direct'&&form.elements.stock_mode.value==='none')&&qty>stockForSale(id)+1e-9){error.textContent='Jumlah '+(saleMaster.barang.find(x=>String(x.id)===id)?.nama_barang||'barang')+' melebihi stok gudang yang dipilih.';return;}
+ for(const [id,qty]of totals)if(!['create','edit','invoice_revision'].includes(orderMode)&&!(orderMode==='direct'&&form.elements.stock_mode.value==='none')&&qty>stockForSale(id)+1e-9){error.textContent='Jumlah '+(saleMaster.barang.find(x=>String(x.id)===id)?.nama_barang||'barang')+' melebihi stok gudang yang dipilih.';return;}
  try{calculateAdmin(calculateSaleAmounts(items,saleDiscountAmount(items,form),form.elements.ongkir.value,form.elements.pajak.value),form.elements.admin_mode.value,form.elements.admin_value.value);}catch(e){error.textContent=e.message;return;}
  const payload={p_harga_tipe:form.elements.harga_tipe.value,p_channel:form.elements.channel.value,p_admin_mode:form.elements.admin_mode.value,p_admin_value:Number(form.elements.admin_value.value),p_diskon:saleDiscountAmount(items,form),p_ongkir:Number(form.elements.ongkir.value),p_pajak:form.elements.pajak.value,p_nomor:form.elements.nomor.value,p_customer:form.elements.customer.value,p_gudang:form.elements.gudang.value,p_tanggal:form.elements.tanggal.value,p_metode:form.elements.metode.value,p_tempo:form.elements.metode.value==='Tempo'?form.elements.tempo.value:null,p_catatan:form.elements.catatan.value.trim(),p_account:form.elements.metode.value==='Tempo'?null:form.elements.account.value,p_items:items};
  const controls=[...form.querySelectorAll('input,select,button')].map(el=>[el,el.disabled]);salePending=true;controls.forEach(([el])=>el.disabled=true);document.getElementById('saveSale').textContent='Menyimpan…';
  try{
   const actor=authSession?.user?.id,mode=orderMode;
   const path=await uploadOrderPO();if(actor!==authSession?.user?.id)throw Error('Akun berubah. Buka ulang formulir.');
-  if(mode==='direct'&&form.elements.stock_mode.value==='none')await accessRpc('hanyojo_invoice_without_stock',{p_request:orderRequest,p_payload:{...payload,p_po_number:form.elements.po_number.value.trim(),p_address:form.elements.delivery_address.value.trim(),p_path:path},p_reference:form.elements.stock_reference.value.trim()});
+  if(mode==='invoice_revision')await accessRpc('hanyojo_revise_invoice',{p_sale:Number(invoiceRevisionContext.sale.id),p_request:orderRequest,p_expected:invoiceRevisionContext,p_payload:{...payload,p_po_number:form.elements.po_number.value.trim(),p_address:form.elements.delivery_address.value.trim(),p_path:path},p_reason:form.elements.edit_reason.value.trim()});
+  else if(mode==='direct'&&form.elements.stock_mode.value==='none')await accessRpc('hanyojo_invoice_without_stock',{p_request:orderRequest,p_payload:{...payload,p_po_number:form.elements.po_number.value.trim(),p_address:form.elements.delivery_address.value.trim(),p_path:path},p_reference:form.elements.stock_reference.value.trim()});
   else if(mode==='edit')await accessRpc('hanyojo_edit_order',{p_id:orderId,p_request:orderRequest,p_revision:orderRevision,p_payload:payload,p_po:form.elements.po_number.value.trim(),p_path:path,p_address:form.elements.delivery_address.value.trim(),p_reason:form.elements.edit_reason.value.trim()});
   else if(mode==='ship')await accessRpc('hanyojo_ship_order',{p_id:orderId,p_payload:payload});
   else await accessRpc('hanyojo_save_order',{p_id:orderRequest,p_payload:payload,p_po:form.elements.po_number.value.trim(),p_path:path,p_address:form.elements.delivery_address.value.trim(),p_direct:mode==='direct'});
   if(actor!==authSession?.user?.id)return;adminDataPromise=null;await loadOrders();
-  document.getElementById('saleDialog').close();showMessage(orderMode==='edit'?'Perubahan pesanan tersimpan. Stok, tagihan dan uang belum berubah.':orderMode==='create'?'Pesanan tersimpan. Stok, tagihan dan uang belum berubah.':(form.elements.stock_mode.value==='none'?'Faktur tagihan tersimpan. Stok tidak berubah. Pembayaran dicatat melalui Kas & Bank.':'Faktur tagihan tersimpan. Stok gudang berkurang.'));
+  document.getElementById('saleDialog').close();showMessage(orderMode==='invoice_revision'?'Faktur revisi tersimpan. Faktur lama dibatalkan dan tetap ada dalam riwayat. Stok serta tagihan sudah disesuaikan.':orderMode==='edit'?'Perubahan pesanan tersimpan. Stok, tagihan dan uang belum berubah.':orderMode==='create'?'Pesanan tersimpan. Stok, tagihan dan uang belum berubah.':(form.elements.stock_mode.value==='none'?'Faktur tagihan tersimpan. Stok tidak berubah. Pembayaran dicatat melalui Kas & Bank.':'Faktur tagihan tersimpan. Stok gudang berkurang.'));
   await Promise.allSettled([loadSales(),loadBarang(),loadStocks(),loadLatestSales()]);
  }catch(err){error.textContent='Belum dapat menyimpan: '+err.message+' Jika koneksi terputus, periksa daftar penjualan sebelum mengulang.';}
- finally{salePending=false;controls.forEach(([el,disabled])=>el.disabled=disabled);document.getElementById('saveSale').textContent=orderMode==='edit'?'Simpan Perubahan':orderMode==='create'?'Simpan Pesanan':'Simpan & Keluarkan Barang';}
+ finally{salePending=false;controls.forEach(([el,disabled])=>el.disabled=disabled);document.getElementById('saveSale').textContent=orderMode==='invoice_revision'?'Simpan Revisi Faktur':orderMode==='edit'?'Simpan Perubahan':orderMode==='create'?'Simpan Pesanan':'Simpan & Keluarkan Barang';}
 });
 
 let financeAccounts=[],paymentReceivable=null,paymentRequest=null,paymentPending=false,paymentAttempt=null;
@@ -1876,8 +1880,10 @@ function continueSalaryRevision(){const reason=document.getElementById('salaryRe
 <script>
 let orderRevision=0;
 let orderMode='direct',orderId=null,orderRequest=null,orderPoPath=null,orderBusy=false,orderRows=[],orderGeneration=0;
-function resetOrders(){document.getElementById('orderDetail')?.close();orderGeneration++;orderRows=[];orderId=null;orderRequest=null;orderPoPath=null;document.getElementById('orderTable')?.replaceChildren();if(!salePending)document.getElementById('saleDialog')?.close();}
+function resetOrders(){invoiceRevisionContext=null;document.getElementById('orderDetail')?.close();orderGeneration++;orderRows=[];orderId=null;orderRequest=null;orderPoPath=null;document.getElementById('orderTable')?.replaceChildren();if(!salePending)document.getElementById('saleDialog')?.close();}
+let invoiceRevisionContext=null;
 function configureOrder(mode,id=null){
+ invoiceRevisionContext=null;
  orderMode=mode;orderId=id;orderRequest=crypto.randomUUID();orderPoPath=null;
  const f=document.getElementById('saleForm');f.elements.po_file.onchange=()=>{orderPoPath=null;};f.querySelector('h3').textContent=mode==='edit'?'Edit Pesanan PO':mode==='create'?'Tambah Pesanan Penjualan':mode==='ship'?'Kirim Pesanan & Buat Penjualan':'Tambah Penjualan';
  document.getElementById('saveSale').textContent=mode==='edit'?'Simpan Perubahan':mode==='create'?'Simpan Pesanan':'Simpan & Keluarkan Barang';
@@ -1886,6 +1892,43 @@ function configureOrder(mode,id=null){
  for(const el of f.querySelectorAll('input,select,textarea,button'))el.disabled=false;
  f.elements.edit_reason.value='';f.elements.edit_reason.required=mode==='edit';document.getElementById('orderEditReason').hidden=mode!=='edit';
  updateInvoiceStock(f);
+}
+async function openInvoiceRevision(id){
+ if(salePending||!['owner','ceo'].includes(erpRole))return;
+ const actor=authSession?.user?.id;
+ try{
+  const ctx=await accessRpc('hanyojo_invoice_edit_context',{p_sale:Number(id)});
+  if(actor!==authSession?.user?.id)return;
+  document.getElementById('saleDetail').close();
+  await openSale();if(actor!==authSession?.user?.id||!document.getElementById('saleDialog').open)return;
+  configureOrder('invoice_revision');invoiceRevisionContext=ctx;orderPoPath=ctx.metadata.po_path||null;
+  const f=document.getElementById('saleForm'),s=ctx.sale;
+  f.querySelector('h3').textContent='Edit Faktur — '+s.nomor_penjualan;
+  f.elements.nomor.value=s.nomor_penjualan.slice(0,59)+'-R'+orderRequest.slice(0,8).toUpperCase();
+  f.elements.tanggal.value=todayJakarta();f.elements.customer.value=s.customer_id;f.elements.gudang.value=s.gudang_id;
+  f.elements.harga_tipe.value=s.harga_tipe||'Retail';f.elements.metode.value='Tempo';
+  f.elements.tempo.value=s.jatuh_tempo>=todayJakarta()?s.jatuh_tempo:todayJakarta();
+  f.elements.catatan.value=s.catatan||'';f.elements.ongkir.value=s.ongkir||0;
+  f.elements.pajak.value=s.ppn_included?'include':Number(s.ppn_persen)>0?'exclude':'non';
+  f.elements.channel.value=s.channel||'Langsung';f.elements.admin_mode.value='nominal';f.elements.admin_value.value=0;
+  f.elements.diskon_mode.value='nominal';f.elements.diskon.value=s.diskon_total||0;
+  f.elements.po_number.value=ctx.metadata.po_number||'';f.elements.delivery_address.value=ctx.metadata.address||'';
+  f.elements.stock_mode.value=ctx.metadata.stock_out===false?'none':'out';f.elements.stock_reference.value=ctx.metadata.stock_reference||'';
+  document.getElementById('saleLines').replaceChildren();
+  for(const x of ctx.items){
+   addSaleLine();const row=document.getElementById('saleLines').lastElementChild;
+   row.querySelector('.sale-barang').value=x.barang_id;row.querySelector('.sale-qty').value=x.qty;row.querySelector('.sale-harga').value=x.harga;
+   if(x.discount_mode){row.querySelector('.sale-dmode').value=x.discount_mode;row.querySelector('.sale-dvalue').value=x.discount_value||0;}
+   else if(Number(x.diskon)>0){const perUnit=Math.round(Number(x.diskon)/Number(x.qty)*100)/100;if(Math.abs(Math.round(Number(x.qty)*(Number(x.harga)-perUnit)*100)/100-Number(x.subtotal))>0.001)throw Error('Diskon faktur lama ini memerlukan pemeriksaan pembulatan sebelum direvisi.');row.querySelector('.sale-dmode').value='nominal';row.querySelector('.sale-dvalue').value=perUnit;}
+   row.querySelector('.sale-dvalue').max=row.querySelector('.sale-dmode').value==='percent'?'100':'1000000000000';
+  }
+  updateSalePayment();updateInvoiceStock(f);updateSaleStock();updateSaleTotal();
+  for(const key of ['gudang','metode','stock_mode','stock_reference','invoice_kind','po_file'])f.elements[key].disabled=true;
+  f.elements.edit_reason.required=true;document.getElementById('orderEditReason').hidden=false;
+  document.getElementById('saveSale').textContent='Simpan Revisi Faktur';
+  document.getElementById('orderFormNote').textContent='Revisi membuat faktur baru bernomor -R. Faktur lama dibatalkan dan tetap ada dalam riwayat. Stok dan tagihan disesuaikan dalam satu penyimpanan; gudang, metode pembayaran, dan lampiran PO tetap.'+(Number(s.diskon_total)>0?' Diskon transaksi dari faktur lama tetap '+rupiah(s.diskon_total)+'.':'');
+  document.getElementById('shipCheckLabel').hidden=true;f.elements.ship_check.required=false;
+ }catch(e){document.getElementById('saleDialog').close();invoiceRevisionContext=null;showMessage('Faktur belum dapat diedit: '+e.message);}
 }
 async function openOrder(){await openSale();if(!document.getElementById('saleDialog').open)return;configureOrder('create');document.getElementById('saleForm').elements.nomor.value='SO-'+todayJakarta().replaceAll('-','')+'-'+orderRequest.replaceAll('-','').toUpperCase();}
 async function loadOrders(){
