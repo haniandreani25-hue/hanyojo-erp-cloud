@@ -227,6 +227,7 @@
         <input name="nama_customer" class="input" required>
       </label>
 
+     <label>Nama Toko (opsional)<input name="nama_toko" class="input" maxlength="200"></label>
      <label>Tipe Customer
   <select name="tipe_customer" class="input"><option value="Retail">Ritel</option><option value="Modern Market">Modern Market</option></select>
 </label>
@@ -765,7 +766,9 @@ const editId = form.dataset.editId;
 
   
   function openCustomer() {
-  document.getElementById("customerDialog").showModal();
+ const form=document.getElementById('customerForm');form.reset();delete form.dataset.editId;
+ form.querySelector('h3').textContent='Tambah Customer / Toko';
+ document.getElementById("customerDialog").showModal();
 }
   
   function openSupplier() {
@@ -818,37 +821,31 @@ async function saveSupplier() {
 }
   
 
+let customerSaving=false;
 async function saveCustomer() {
-  try {
-    const form = document.getElementById("customerForm");
-    const data = Object.fromEntries(new FormData(form).entries());
-
-    if (!cfg.url || !cfg.key) {
-      throw new Error("Supabase URL dan Publishable Key belum disimpan.");
-    }
-
-    const r = await fetch(`${cfg.url}/rest/v1/customers`, {
-      method: "POST",
-      headers: headers({
-        "Prefer": "return=representation"
-      }),
-      body: JSON.stringify(data)
-    });
-
-    if (!r.ok) {
-      throw new Error(await r.text());
-    }
-
-    document.getElementById("customerDialog").close();
-    form.reset();
-
-    showMessage("Customer berhasil disimpan.");
-    await loadCustomers();
-
-  } catch (e) {
-    showMessage("Customer belum bisa disimpan: " + e.message);
-  }
+ const form=document.getElementById('customerForm');
+ if(customerSaving||!form.reportValidity())return;
+ const data=Object.fromEntries(new FormData(form).entries()),id=form.dataset.editId;
+ for(const key of ['nama_customer','nama_toko','nomor_hp','alamat'])data[key]=String(data[key]||'').trim();
+ if(!data.nama_customer){showMessage('Isi nama customer.');return;}
+ const actor=authSession?.user?.id,buttons=[...form.querySelectorAll('button')];
+ customerSaving=true;buttons.forEach(b=>b.disabled=true);
+ try {
+  if(!actor)throw Error('Silakan masuk terlebih dahulu.');
+  if(id&&!/^\d+$/.test(id))throw Error('Customer tidak valid.');
+  const r=await fetch(cfg.url+'/rest/v1/customers'+(id?'?id=eq.'+encodeURIComponent(id):''),{
+   method:id?'PATCH':'POST',headers:headers({'Prefer':'return=representation'}),body:JSON.stringify(data)
+  });
+  if(!r.ok)throw Error(await r.text());const saved=await r.json();
+  if(!Array.isArray(saved)||saved.length!==1)throw Error('Data belum diperbarui. Periksa izin akun.');
+  if(actor!==authSession?.user?.id)return;
+  document.getElementById('customerDialog').close();form.reset();delete form.dataset.editId;
+  showMessage(id?'Nama toko dan data customer berhasil diperbarui.':'Customer berhasil disimpan.');
+  await loadCustomers();
+ }catch(e){showMessage('Customer belum bisa disimpan: '+e.message);}
+ finally{customerSaving=false;buttons.forEach(b=>b.disabled=false);}
 }
+document.getElementById('customerDialog').addEventListener('cancel',e=>{if(customerSaving)e.preventDefault();});
 
   async function loadDashboard() {
   if (!cfg.url || !cfg.key) {
@@ -1024,7 +1021,7 @@ showMessage("Barang gagal dihapus: " + e.message);
       ? `<table>
           <thead>
             <tr>
-              <th>Nama Customer</th>
+              <th>Nama Customer</th><th>Nama Toko</th>
               <th>Tipe Customer</th>
               <th>Telepon</th>
               <th>Alamat</th>
@@ -1034,7 +1031,7 @@ showMessage("Barang gagal dihapus: " + e.message);
           <tbody>
             ${rows.map(x => `
               <tr>
-                <td>${esc(x.nama_customer || "")}</td>
+                <td>${esc(x.nama_customer || "")}</td><td>${esc(x.nama_toko || "—")}</td>
                 <td>${esc(x.tipe_customer || "")}</td>
                 <td>${esc(x.nomor_hp || "")}</td>
                 <td>${esc(x.alamat || "")}</td>
@@ -1073,57 +1070,18 @@ async function deleteCustomer(id) {
 } 
 
 async function editCustomer(id) {
-  try {
-    const r = await fetch(`${cfg.url}/rest/v1/customers?id=eq.${id}&select=*`, {
-      method: "GET",
-      headers: headers()
-    });
-
-    if (!r.ok) {
-      throw new Error(await r.text());
-    }
-
-    const rows = await r.json();
-    const x = rows[0];
-
-    if (!x) {
-      showMessage("Data customer tidak ditemukan.");
-      return;
-    }
-
-    const nama = prompt("Nama Customer:", x.nama_customer || "");
-    if (nama === null) return;
-
-    const tipe = prompt("Tipe Customer:", x.tipe_customer || "Retail");
-    if (tipe === null) return;
-
-    const telepon = prompt("Telepon:", x.nomor_hp || "");
-    if (telepon === null) return;
-
-    const alamat = prompt("Alamat:", x.alamat || "");
-    if (alamat === null) return;
-
-    const update = await fetch(`${cfg.url}/rest/v1/customers?id=eq.${id}`, {
-      method: "PATCH",
-      headers: headers(),
-      body: JSON.stringify({
-        nama_customer: nama,
-        tipe_customer: tipe,
-        nomor_hp: telepon,
-        alamat: alamat
-      })
-    });
-
-    if (!update.ok) {
-      throw new Error(await update.text());
-    }
-
-    showMessage("Customer berhasil diperbarui.");
-    await loadCustomers();
-
-  } catch (e) {
-    showMessage("Customer gagal diperbarui: " + e.message);
-  }
+ try {
+  if(!/^\d+$/.test(String(id)))throw Error('Customer tidak valid.');
+  const actor=authSession?.user?.id;
+  const r=await fetch(cfg.url+'/rest/v1/customers?id=eq.'+encodeURIComponent(id)+'&select=*',{headers:headers()});
+  if(!r.ok)throw Error(await r.text());const rows=await r.json(),x=rows[0];
+  if(actor!==authSession?.user?.id)return;
+  if(!x)throw Error('Customer tidak ditemukan.');
+  const f=document.getElementById('customerForm');f.reset();f.dataset.editId=String(x.id);
+  for(const key of ['nama_customer','nama_toko','tipe_customer','nomor_hp','alamat'])f.elements[key].value=x[key]??(key==='tipe_customer'?'Retail':'');
+  f.querySelector('h3').textContent='Edit Customer / Nama Toko';
+  document.getElementById('customerDialog').showModal();
+ }catch(e){showMessage('Customer belum dapat dibuka: '+e.message);}
 }
   
   async function loadSuppliers() {
