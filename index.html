@@ -88,6 +88,7 @@
       <button data-page="corrections">Koreksi &amp; Retur</button>
       <button data-page="reports">Laporan</button>
       <button data-page="payroll" id="payrollNav" hidden>Gaji Bulanan</button>
+      <button data-page="workletters">Surat Tugas</button>
       <button data-page="settings">Pengaturan</button>
     </nav>
   </aside>
@@ -106,6 +107,26 @@
 
     <div id="message" class="notice hidden"></div>
 
+    <section id="workletters" class="section">
+      <div class="panel"><div class="toolbar"><h3>Surat Tugas Kerja</h3><div><button class="btn secondary" type="button" onclick="loadWorkLetters(workLetterOffset)">Muat ulang</button> <button class="btn" type="button" onclick="openWorkLetter()">+ Surat Tugas</button></div></div>
+      <p class="small" style="margin-bottom:14px">Kunjungan toko, pengiriman barang, dan penugasan kerja PT HANYOJO SUN JAVA.</p><div id="workLetterTable" class="table-wrap"></div>
+      <div class="modal-actions"><button id="workLetterPrev" class="btn secondary" type="button" onclick="loadWorkLetters(Math.max(0,workLetterOffset-50))" disabled>Sebelumnya</button><button id="workLetterNext" class="btn secondary" type="button" onclick="loadWorkLetters(workLetterOffset+50)" disabled>Berikutnya</button></div></div>
+    </section>
+    <dialog id="workLetterDialog"><form id="workLetterForm" class="modal">
+      <h3 id="workLetterTitle">Tambah Surat Tugas</h3><div class="form-grid">
+      <label>Nomor surat<input class="input" name="number" maxlength="100" placeholder="Otomatis saat disimpan"></label>
+      <label>Tanggal surat<input class="input" type="date" name="date" required></label>
+      <label>Tempat penerbitan<input class="input" name="place" maxlength="200" required></label>
+      <label>Jenis tugas<select class="input" name="category"><option>Kunjungan toko</option><option>Pengiriman barang</option><option>Tugas kerja lainnya</option></select></label>
+      <div class="full"><h4>Petugas yang ditugaskan</h4><div id="workLetterPeople"></div><button class="btn secondary" type="button" onclick="addWorkLetterPerson()">+ Petugas</button></div>
+      <label class="full">Tujuan / lokasi tugas<textarea class="input" name="destination" maxlength="1000" rows="2" required></textarea></label>
+      <label class="full">Uraian tugas<textarea class="input" name="purpose" maxlength="5000" rows="4" required></textarea></label>
+      <label>Tanggal mulai<input class="input" type="date" name="start" required></label><label>Tanggal selesai<input class="input" type="date" name="end" required></label>
+      <label>Nama penandatangan<input class="input" name="signer" maxlength="200" required></label><label>Jabatan penandatangan<input class="input" name="signer_job" maxlength="200" required></label>
+      <label class="full">Catatan tambahan (opsional)<textarea class="input" name="notes" maxlength="3000" rows="3"></textarea></label>
+      </div><p id="workLetterError" role="alert" style="color:var(--danger);margin-top:12px"></p>
+      <div class="modal-actions"><button class="btn secondary" type="button" onclick="closeWorkLetter()">Tutup</button><button class="btn" type="submit">Simpan Surat Tugas</button></div>
+    </form></dialog>
     <section id="dashboard" class="section active">
       <div class="cards">
         <div class="card"><p>Total Barang</p><h3 id="countBarang">—</h3></div>
@@ -398,14 +419,14 @@ function getAuthClient() {
 
 
 let erpRole=null, roleGeneration=0, adminDataPromise=null;
-const adminPages=new Set(['dashboard','barang','customers','suppliers','warehouses','consignments','orders','sales','stocks']);
+const adminPages=new Set(['dashboard','barang','customers','suppliers','warehouses','consignments','orders','sales','stocks','workletters']);
 function pageAllowed(page){return erpRole==='owner'||(erpRole==='ceo'&&page!=='settings')||(erpRole==='admin'&&adminPages.has(page));}
 async function accessRpc(name,body={}) {
  const response=await fetch(cfg.url+'/rest/v1/rpc/'+name,{method:'POST',headers:headers(),body:JSON.stringify(body)});
  const result=await response.json();if(!response.ok)throw Error(result.message||'Akses belum tersedia.');return result;
 }
 async function resolveAccess(session){
- const generation=++roleGeneration;erpRole=null;adminDataPromise=null;resetCorrections();resetOrders();resetConsignments();
+ const generation=++roleGeneration;erpRole=null;adminDataPromise=null;resetCorrections();resetOrders();resetConsignments();resetWorkLetters();
  document.getElementById('erpApp').classList.add('hidden');
  if(!session?.user)return;
  try{
@@ -505,7 +526,7 @@ document.getElementById('salaryNew').onclick=()=>{if(confirm('Buka slip baru? Pa
 document.getElementById('salaryReload').onclick=()=>loadSalaryHistory().catch(e=>document.getElementById('salaryAccessMessage').textContent=e.message);
 
 function setAuthView(session) {
- if(authSession?.user?.id!==session?.user?.id){resetCorrections();resetOrders();resetConsignments();erpRole=null;saleDetailGeneration++;resetSaleCancellation();document.getElementById('saleDetail').close();document.getElementById('cancelSaleDialog').close();}
+ if(authSession?.user?.id!==session?.user?.id){resetCorrections();resetOrders();resetConsignments();resetWorkLetters();erpRole=null;saleDetailGeneration++;resetSaleCancellation();document.getElementById('saleDetail').close();document.getElementById('cancelSaleDialog').close();}
   authSession = session;
   refreshPayrollPreviewAccess(session);
   const signedIn = Boolean(session?.user);
@@ -577,7 +598,7 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
 });
 
 async function logout() {
- resetCorrections();resetOrders();resetConsignments();
+ resetCorrections();resetOrders();resetConsignments();resetWorkLetters();
   const client = getAuthClient();
   if (!client) return;
   const { error } = await client.auth.signOut();
@@ -610,6 +631,7 @@ document.querySelectorAll(".menu button").forEach((button) => {
     if (page === "purchases") loadPurchases();
     if (page === "consignments") loadConsignments();
     if (page === "orders") loadOrders();
+    if (page === "workletters") loadWorkLetters();
     if (page === "sales") loadSales();
     if (page === "payments") loadFinance();
     if (page === "corrections") {loadCorrections();loadCorrectionHistory();}
@@ -618,7 +640,7 @@ document.querySelectorAll(".menu button").forEach((button) => {
     if (page === "reports") openReports();
     if (page === "payroll") openPayrollPreview();
     const subtitle = document.getElementById("pageSubtitle");
-    subtitle.textContent = page === "consignments" ? "Faktur dan stok titipan per toko" : page === "payroll" ? "Rincian gaji dan riwayat — pembayaran kas terpisah" : page === "warehouses" ? "Lokasi penyimpanan dan penanggung jawab" : page === "reports" ? "Penjualan, pembelian, dan kas harian" : page === "payments" ? "Saldo, piutang, utang, dan pembayaran" : page === "purchases" ? "Pembelian dan penerimaan barang" : page === "sales" ? "Penjualan dan pengeluaran barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
+    subtitle.textContent = page === "workletters" ? "Penugasan kerja PT HANYOJO SUN JAVA" : page === "consignments" ? "Faktur dan stok titipan per toko" : page === "payroll" ? "Rincian gaji dan riwayat — pembayaran kas terpisah" : page === "warehouses" ? "Lokasi penyimpanan dan penanggung jawab" : page === "reports" ? "Penjualan, pembelian, dan kas harian" : page === "payments" ? "Saldo, piutang, utang, dan pembayaran" : page === "purchases" ? "Pembelian dan penerimaan barang" : page === "sales" ? "Penjualan dan pengeluaran barang" : page === "stocks" ? "Persediaan per gudang" : "Ringkasan operasional perusahaan";
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = button.textContent;
 
@@ -2025,6 +2047,59 @@ function consignmentPrintHtml(o){
 
 function printConsignment(id){const o=consRows.find(x=>x.id===id);if(!o||!['owner','ceo','admin'].includes(erpRole))return;const w=window.open('','_blank');if(!w){showMessage('Izinkan pop-up untuk mencetak faktur.');return;}w.opener=null;w.document.write(consignmentPrintHtml(o));w.document.close();}
 for(const id of ['consFormDialog','consActionDialog'])document.getElementById(id).addEventListener('cancel',e=>{if(consPending)e.preventDefault();});
+
+
+// Surat tugas kerja — each change is saved with a revision check.
+let workLetterRows=[],workLetterOffset=0,workLetterGeneration=0,workLetterCurrent=null,workLetterPending=false;
+function workLetterAllowed(){return ['owner','ceo','admin'].includes(erpRole);}
+function resetWorkLetters(){workLetterGeneration++;workLetterRows=[];workLetterCurrent=null;workLetterOffset=0;document.getElementById('workLetterTable')?.replaceChildren();document.getElementById('workLetterDialog')?.close();}
+function workLetterDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return value||'—';const[y,m,d]=value.split('-');return d+'/'+m+'/'+y;}
+async function loadWorkLetters(offset=0){
+ if(!workLetterAllowed())return;const generation=++workLetterGeneration,actor=authSession?.user?.id,t=document.getElementById('workLetterTable');t.textContent='Memuat surat tugas…';
+ try{const rows=await accessRpc('hanyojo_work_letter_records',{p_offset:offset});if(generation!==workLetterGeneration||actor!==authSession?.user?.id||!workLetterAllowed())return;
+ workLetterRows=rows.slice(0,50);workLetterOffset=offset;
+ t.innerHTML=workLetterRows.length?'<table><thead><tr><th>Nomor / tanggal</th><th>Petugas</th><th>Tujuan</th><th>Masa tugas</th><th>Status</th><th>Tindakan</th></tr></thead><tbody>'+workLetterRows.map(o=>'<tr><td>'+esc(o.number)+'<br><span class="small">'+esc(workLetterDate(o.payload.date))+'</span></td><td>'+o.payload.people.map(x=>esc(x.name)).join('<br>')+'</td><td style="white-space:normal;min-width:160px">'+esc(o.payload.destination)+'</td><td>'+esc(workLetterDate(o.payload.start))+' – '+esc(workLetterDate(o.payload.end))+'</td><td>'+esc(o.status)+(o.cancellation_reason?'<br><span class="small">'+esc(o.cancellation_reason)+'</span>':'')+'</td><td><button class="btn secondary" onclick="printWorkLetter(\''+o.id+'\')">Cetak / PDF</button> '+(o.status==='Aktif'?'<button class="btn secondary" onclick="openWorkLetter(\''+o.id+'\')">Edit</button> <button class="btn danger" onclick="cancelWorkLetter(\''+o.id+'\')">Batalkan</button>':'')+'</td></tr>').join('')+'</tbody></table>':'Belum ada surat tugas.';
+ document.getElementById('workLetterPrev').disabled=offset===0;document.getElementById('workLetterNext').disabled=rows.length<=50;
+ }catch(e){if(generation===workLetterGeneration)t.textContent=e.message;}
+}
+function addWorkLetterPerson(person={}){
+ if(workLetterPending)return;const target=document.getElementById('workLetterPeople');if(target.children.length>=30){showMessage('Maksimal 30 petugas dalam satu surat.');return;}
+ const row=document.createElement('div');row.className='work-letter-person';row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin:10px 0';
+ row.innerHTML='<label style="flex:1;min-width:150px">Nama petugas<input class="input person-name" maxlength="200" required></label><label style="flex:1;min-width:150px">Jabatan<input class="input person-job" maxlength="200" required></label><button type="button" class="btn secondary">Hapus</button>';
+ row.querySelector('.person-name').value=person.name||'';row.querySelector('.person-job').value=person.job||'';
+ row.querySelector('button').onclick=()=>{if(!workLetterPending){if(target.children.length>1)row.remove();else showMessage('Isi minimal satu petugas.');}};target.appendChild(row);
+}
+function openWorkLetter(id){
+ if(!workLetterAllowed()||workLetterPending)return;const o=id?workLetterRows.find(x=>x.id===id):null;if(id&&(!o||o.status!=='Aktif'))return;
+ workLetterCurrent=o?{id:o.id,revision:o.revision}:{id:crypto.randomUUID(),revision:0};const f=document.getElementById('workLetterForm');f.reset();document.getElementById('workLetterPeople').replaceChildren();document.getElementById('workLetterError').textContent='';document.getElementById('workLetterTitle').textContent=o?'Edit Surat Tugas':'Tambah Surat Tugas';
+ const p=o?.payload||{date:todayJakarta(),place:'Bandung',category:'Tugas kerja lainnya',start:todayJakarta(),end:todayJakarta()};
+ for(const key of ['number','date','place','category','destination','purpose','start','end','signer','signer_job','notes'])f.elements[key].value=p[key]||'';
+ for(const person of p.people||[{}])addWorkLetterPerson(person);document.getElementById('workLetterDialog').showModal();
+}
+function closeWorkLetter(){if(!workLetterPending){document.getElementById('workLetterDialog').close();workLetterCurrent=null;}}
+function collectWorkLetter(f){const p={};for(const k of ['number','date','place','category','destination','purpose','start','end','signer','signer_job','notes'])p[k]=f.elements[k].value.trim();p.people=[...document.querySelectorAll('#workLetterPeople .work-letter-person')].map(r=>({name:r.querySelector('.person-name').value.trim(),job:r.querySelector('.person-job').value.trim()}));if(p.start>p.end)throw Error('Tanggal selesai harus sama atau setelah tanggal mulai.');if(!p.people.length||p.people.some(x=>!x.name||!x.job))throw Error('Nama dan jabatan setiap petugas wajib diisi.');return p;}
+document.getElementById('workLetterForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(workLetterPending||!workLetterCurrent||!workLetterAllowed())return;const f=e.currentTarget;if(!f.reportValidity())return;const error=document.getElementById('workLetterError');error.textContent='';let payload;try{payload=collectWorkLetter(f);}catch(e){error.textContent=e.message;return;}
+ const current={...workLetterCurrent},actor=authSession?.user?.id,g=workLetterGeneration;workLetterPending=true;const controls=[...f.querySelectorAll('button,input,textarea,select')];controls.forEach(x=>x.disabled=true);
+ try{await accessRpc('hanyojo_save_work_letter',{p_id:current.id,p_revision:current.revision,p_payload:payload});if(g!==workLetterGeneration||actor!==authSession?.user?.id)return;document.getElementById('workLetterDialog').close();workLetterCurrent=null;showMessage('Surat tugas tersimpan. Pilih Cetak / PDF untuk membuka surat.');await loadWorkLetters(workLetterOffset);}catch(e){if(g===workLetterGeneration&&actor===authSession?.user?.id)error.textContent=e.message.includes('duplicate key')?'Nomor surat sudah digunakan. Gunakan nomor lain.':e.message;}finally{workLetterPending=false;controls.forEach(x=>x.disabled=false);}
+});
+document.getElementById('workLetterDialog').addEventListener('cancel',e=>{if(workLetterPending)e.preventDefault();});
+async function cancelWorkLetter(id){
+ if(workLetterPending||!workLetterAllowed())return;const o=workLetterRows.find(x=>x.id===id);if(!o||o.status!=='Aktif')return;const reason=prompt('Alasan pembatalan surat tugas (5–1000 karakter):');if(reason===null)return;if(reason.trim().length<5||reason.trim().length>1000){showMessage('Isi alasan pembatalan 5–1000 karakter.');return;}if(!confirm('Batalkan surat '+o.number+'? Riwayat surat tetap tersimpan.'))return;
+ const actor=authSession?.user?.id,g=workLetterGeneration;workLetterPending=true;try{await accessRpc('hanyojo_cancel_work_letter',{p_id:o.id,p_revision:o.revision,p_reason:reason.trim()});if(g!==workLetterGeneration||actor!==authSession?.user?.id)return;showMessage('Surat tugas dibatalkan.');await loadWorkLetters(workLetterOffset);}catch(e){if(g===workLetterGeneration&&actor===authSession?.user?.id)showMessage(e.message);}finally{workLetterPending=false;}
+}
+function workLetterPrintHtml(o){
+ const p=o.payload,c=invoiceCompany,text=x=>esc(x||'').replace(/\n/g,'<br>'),date=workLetterDate;
+ return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Surat Tugas ${esc(o.number)}</title><style>
+ @page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#111;font:11pt Arial,sans-serif;line-height:1.6}.toolbar{text-align:center;padding:14px}.toolbar button{padding:10px 16px;cursor:pointer}.sheet{max-width:794px;margin:0 auto 24px;padding:40px;background:#fff;overflow-wrap:anywhere}.kop{border-bottom:2px solid #222;padding-bottom:14px}.kop h1{font-size:18pt;margin:0}.kop p{font-size:9pt;margin:0}.title{text-align:center;margin:28px 0}.title h2{font-size:14pt;text-decoration:underline;margin:0}.title p{margin:0}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #bbb;padding:8px;text-align:left;vertical-align:top}th{font-size:10pt}.label{font-weight:bold;margin-bottom:4px}.details{display:grid;grid-template-columns:125px 1fr;gap:8px 14px}.signature{margin:42px 0 0 auto;width:270px;break-inside:avoid}.signature p{margin:0}.name{margin-top:70px!important;font-weight:bold;text-decoration:underline}.cancel{color:#b42318;border:2px solid #b42318;padding:10px;text-align:center;font-weight:bold;margin-top:16px}tr{break-inside:avoid}@media print{body{background:#fff}.toolbar{display:none}.sheet{max-width:none;margin:0;padding:0}}@media(max-width:600px){.sheet{padding:20px}.details{grid-template-columns:100px 1fr}}
+ </style></head><body><div class="toolbar"><button onclick="window.print()">Cetak / Simpan PDF</button></div><main class="sheet"><header class="kop"><h1>${esc(c.name.toUpperCase())}</h1><p>${text(c.address)}<br>${esc(c.email)} · ${esc(c.phone)}</p></header>${o.status==='Dibatalkan'?'<div class="cancel">SURAT DIBATALKAN<br>'+text(o.cancellation_reason)+'</div>':''}<div class="title"><h2>SURAT TUGAS</h2><p>Nomor: ${esc(o.number)}</p></div><p>PT HANYOJO SUN JAVA menugaskan kepada:</p><table><thead><tr><th style="width:40px">No.</th><th>Nama petugas</th><th>Jabatan</th></tr></thead><tbody>${p.people.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.job)+'</td></tr>').join('')}</tbody></table><div class="details"><span class="label">Jenis tugas</span><span>${esc(p.category)}</span><span class="label">Tujuan / lokasi</span><span>${text(p.destination)}</span><span class="label">Masa tugas</span><span>${esc(date(p.start))}${p.end!==p.start?' s.d. '+esc(date(p.end)):''}</span><span class="label">Uraian tugas</span><span>${text(p.purpose)}</span>${p.notes?'<span class="label">Catatan</span><span>'+text(p.notes)+'</span>':''}</div><p style="margin-top:24px">Demikian surat tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab.</p><div class="signature"><p>${esc(p.place)}, ${esc(date(p.date))}</p><p>PT HANYOJO SUN JAVA</p><p class="name">${esc(p.signer)}</p><p>${esc(p.signer_job)}</p></div></main></body></html>`;
+}
+async function printWorkLetter(id){
+ if(!workLetterAllowed())return;const o=workLetterRows.find(x=>x.id===id);if(!o)return;const w=window.open('','_blank');if(!w){showMessage('Izinkan pop-up untuk membuka surat tugas.');return;}w.opener=null;
+ // Refresh before printing so changes or cancellation by another user are visible.
+ const actor=authSession?.user?.id,g=workLetterGeneration;
+ try{const rows=await accessRpc('hanyojo_work_letter_records',{p_offset:workLetterOffset});if(g!==workLetterGeneration||actor!==authSession?.user?.id||!workLetterAllowed()){w.close();return;}const fresh=rows.find(x=>x.id===id);if(!fresh)throw Error('Daftar telah berubah. Muat ulang lalu cetak kembali.');w.document.write(workLetterPrintHtml(fresh));w.document.close();}catch(e){w.close();if(actor===authSession?.user?.id)showMessage(e.message);}
+}
 
 </script>
 <script>
